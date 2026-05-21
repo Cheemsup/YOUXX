@@ -121,7 +121,7 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
   Document,
   Van,
@@ -135,8 +135,7 @@ import {
   Shop,
   Bell
 } from '@element-plus/icons-vue'
-import { getProducts } from '@/data/products.js'
-import { urgentOrder, updateOrderStatus } from '@/data/orders.js'
+import { listProductsApi, updateOrderStatusApi, urgeOrderApi } from '@/services/api.js'
 import { ElMessage } from 'element-plus'
 import MiniCartoonCharacter from '@/components/MiniCartoonCharacter.vue'
 
@@ -165,6 +164,20 @@ export default {
   emits: ['viewDetail', 'buyAgain', 'goShopping', 'orderUpdated'],
   setup(props, { emit }) {
     const activeFilter = ref('all')
+    const productsCache = ref([])
+
+    const loadProducts = async () => {
+      try {
+        const res = await listProductsApi({ page: 1, size: 200 })
+        productsCache.value = res.data.records || []
+      } catch (e) {
+        console.error('加载商品失败', e)
+      }
+    }
+
+    onMounted(() => {
+      loadProducts()
+    })
 
     const stats = computed(() => {
       const total = props.orders.length
@@ -194,41 +207,41 @@ export default {
       return statusMap[status] || 'info'
     }
 
-    const handleConfirmReceive = (order) => {
-      const success = updateOrderStatus(order.id, '已完成')
-      if (success) {
+    const handleConfirmReceive = async (order) => {
+      try {
+        await updateOrderStatusApi(order.id, 'COMPLETED')
         order.status = '已完成'
         ElMessage.success('确认收货成功，订单已完成')
         emit('orderUpdated')
-      } else {
+      } catch (e) {
         ElMessage.error('确认收货失败')
       }
     }
 
     const getProductImage = (productId) => {
-      const product = getProducts().find(p => p.id === productId)
-      return product ? product.image : ''
+      const product = productsCache.value.find(p => p.id === productId)
+      return product ? product.imageUrl : ''
     }
 
     const getFullOrderItems = (order) => {
-      const productsList = getProducts()
       return order.items.map(item => {
-        const product = productsList.find(p => p.id === item.productId)
+        const product = productsCache.value.find(p => p.id === item.productId)
         return {
           ...item,
-          image: product ? product.image : '',
+          image: product ? product.imageUrl : '',
           stock: product ? product.stock : 999
         }
       })
     }
 
-    const handleUrgent = (order) => {
-      const result = urgentOrder(order.id)
-      if (result.success) {
-        ElMessage.success(result.message)
+    const handleUrgent = async (order) => {
+      try {
+        await urgeOrderApi(order.id)
+        order.urgentCount = (order.urgentCount || 0) + 1
+        ElMessage.success('催单成功')
         emit('orderUpdated')
-      } else {
-        ElMessage.error(result.message)
+      } catch (e) {
+        ElMessage.error('催单失败')
       }
     }
 

@@ -287,26 +287,54 @@
  * 订单管理页面组件
  * 功能：订单列表展示、筛选、排序、发货、查看详情
  */
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 // 导入 Element Plus 图标
 import { Search } from '@element-plus/icons-vue'
 // 导入 Element Plus 消息提示
 import { ElMessage } from 'element-plus'
-// 导入订单状态更新工具函数
-import { updateOrderStatus } from '@/data/orders.js'
+// 导入后端API
+import { listOrdersApi, updateOrderStatusApi, getOrderApi } from '@/services/api.js'
+
+// 状态映射：后端英文 → 前端中文
+const STATUS_MAP = {
+  'PENDING': '待发货',
+  'SHIPPED': '已发货',
+  'COMPLETED': '已完成',
+  'CANCELLED': '已取消'
+}
+const STATUS_MAP_REVERSE = Object.fromEntries(
+  Object.entries(STATUS_MAP).map(([k, v]) => [v, k])
+)
+
+// 后端订单映射到前端
+const mapOrder = (o, items) => ({
+  ...o,
+  customer: o.username,
+  customerId: o.userId,
+  status: STATUS_MAP[o.status] || o.status,
+  date: o.createTime ? o.createTime.substring(0, 10) : '',
+  items: items || []
+})
+
+// 后端订单项映射到前端
+const mapOrderItem = (item) => ({
+  ...item,
+  name: item.productName
+})
 
 export default {
   name: 'DashboardOrder',
   // 注册组件
   components: { Search },
-  // 组件属性：接收订单列表
-  props: {
-    orders: { type: Array, default: () => [] }
-  },
+  // 组件属性
+  props: {},
   // 组件事件：订单更新时通知父组件
   emits: ['orderUpdated'],
   setup(props, { emit }) {
     // ========== 响应式数据定义 ==========
+    
+    // 订单列表（从后端加载）
+    const allOrders = ref([])
     
     // 筛选条件
     const orderSearch = ref('')        // 搜索关键词（订单号/客户名）
@@ -317,7 +345,7 @@ export default {
     const sortOption = ref('')         // 排序选项
     
     // 筛选后的订单列表
-    const filteredOrders = ref([...props.orders])
+    const filteredOrders = ref([])
     
     const tableKey = ref(0)
     
@@ -336,6 +364,23 @@ export default {
       const start = (currentPage.value - 1) * pageSize.value
       const end = start + pageSize.value
       return filteredOrders.value.slice(start, end)
+    })
+
+    // 加载订单列表
+    const loadOrders = async () => {
+      try {
+        const res = await listOrdersApi({ page: 1, size: 999 })
+        const records = res.data.records || []
+        allOrders.value = records.map(o => mapOrder(o, o.items || []))
+        filterOrders()
+      } catch (e) {
+        console.error('加载订单失败', e)
+        ElMessage.error('加载订单列表失败')
+      }
+    }
+
+    onMounted(() => {
+      loadOrders()
     })
 
     /**
@@ -379,7 +424,7 @@ export default {
     }
 
     const filterOrders = () => {
-      let result = [...props.orders]
+      let result = [...allOrders.value]
 
       // 搜索筛选
       if (orderSearch.value !== '') {
@@ -483,13 +528,13 @@ export default {
       filterOrders()
     }
 
-    const handleShip = (order) => {
-      const success = updateOrderStatus(order.id, '已发货')
-      if (success) {
+    const handleShip = async (order) => {
+      try {
+        await updateOrderStatusApi(order.id, 'SHIPPED')
         order.status = '已发货'
         ElMessage.success('订单已发货')
         emit('orderUpdated')
-      } else {
+      } catch (e) {
         ElMessage.error('发货失败')
       }
     }
@@ -502,10 +547,6 @@ export default {
         stopLoading()
       }, 500)
     }
-
-    watch(() => props.orders, () => {
-      filterOrders()
-    }, { immediate: true, deep: true })
 
     watch(orderSearch, () => { filterOrders() })
 
@@ -535,7 +576,8 @@ export default {
       loadingPercentage,
       handleDialogClose,
       handleSizeChange,
-      handleCurrentChange
+      handleCurrentChange,
+      loadOrders
     }
   }
 }

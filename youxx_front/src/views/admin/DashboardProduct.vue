@@ -404,68 +404,62 @@
  * 产品管理页面组件
  * 功能：商品列表展示、筛选、上下架管理、添加新商品
  */
-import { ref, computed, shallowRef, triggerRef } from 'vue'
+import { ref, computed, shallowRef, triggerRef, onMounted } from 'vue'
 import { Goods, Search, Grid, List, CircleCheckFilled, UploadFilled, DeleteFilled, Coffee, Sugar, Apple, MilkTea, Food, Plus, Discount, Upload, PictureFilled } from '@element-plus/icons-vue'
-import { getProducts as loadProducts, addProduct as addProductData, updateProduct as updateProductData, saveProducts as persistProducts, categories as categoriesData } from '../../data/products'
+import { listProductsApi, listCategoriesApi, addProductApi, updateProductStatusApi, updateBatchProductStatusApi, updateProductDiscountApi, uploadProductImage } from '@/services/api.js'
 import { ElMessage } from 'element-plus'
 
 export default {
   name: 'DashboardProduct',
-  // 注册组件中使用的图标
   components: { 
     Goods, Search, Grid, List, 
     CircleCheckFilled, UploadFilled, DeleteFilled,
     Coffee, Sugar, Apple, MilkTea, Food, Plus, Discount, Upload, PictureFilled
   },
   setup() {
-    const products = shallowRef(loadProducts())
-    const categories = categoriesData
+    const products = shallowRef([])
+    const categories = ref([])
     
     // 筛选条件
-    const productSearch = ref('')        // 搜索关键词
-    const productCategory = ref('')      // 选中的分类 ID
-    const productStatus = ref('')        // 选中的状态（onshelf/offshelf）
+    const productSearch = ref('')
+    const productCategory = ref('')
+    const productStatus = ref('')
+    
+    // 分页
+    const currentPage = ref(1)
+    const pageSize = ref(100)
+    const total = ref(0)
     
     // 商品详情相关
-    const selectedProduct = ref(null)    // 当前选中的商品
-    const detailDialogVisible = ref(false) // 详情对话框显示状态
+    const selectedProduct = ref(null)
+    const detailDialogVisible = ref(false)
     
     // 视图模式
-    const viewMode = ref('large')        // 'large': 大图模式，'small': 列表模式
+    const viewMode = ref('large')
     
     // 批量操作加载状态
     const batchLoading = ref(false)
     
     // 添加商品相关
-    const addProductDialogVisible = ref(false) // 添加商品对话框显示状态
-    // 新商品表单数据
+    const addProductDialogVisible = ref(false)
     const newProductForm = ref({
-      id: '',              // 商品 ID
-      name: '',            // 商品名称
-      category: '',        // 分类 ID
-      price: 0,            // 价格
-      unit: '件',          // 计量单位
-      stock: 0,            // 库存数量
-      description: '',     // 商品描述
-      barCode: '',         // 条形码
-      tagsInput: '',       // 标签输入（逗号分隔）
-      onshelf: true        // 上架状态
+      id: '',
+      name: '',
+      category: '',
+      price: 0,
+      unit: '件',
+      stock: 0,
+      description: '',
+      barCode: '',
+      tagsInput: '',
+      onshelf: true,
+      imageBase64: ''
     })
     
     // 折扣管理相关
-    const tempDiscount = ref(1)           // 临时折扣值（0-1）
-    const tempDiscountDisplay = ref(10)   // 临时折扣显示值（0-10 折）
-    // 滑块标记
-    const discountMarks = {
-      0: '无折扣',
-      0.5: '5 折',
-      0.7: '7 折',
-      0.8: '8 折',
-      0.9: '9 折',
-      1: '原价'
-    }
+    const tempDiscount = ref(1)
+    const tempDiscountDisplay = ref(10)
 
-    // 图标映射表：将分类图标名称映射到对应的组件
     const iconMap = {
       'Coffee': Coffee,
       'Sugar': Sugar,
@@ -475,89 +469,97 @@ export default {
       'Food': Food
     }
 
-    /**
-     * 获取图标组件
-     * @param {string} iconName - 图标名称
-     * @returns {Component} 图标组件
-     */
     const getIconComponent = (iconName) => {
       return iconMap[iconName] || Goods
     }
 
-    /**
-     * 根据分类 ID 获取分类名称
-     * @param {string} categoryId - 分类 ID
-     * @returns {string} 分类名称
-     */
     const getCategoryName = (categoryId) => {
-      const category = categories.find(c => c.id === categoryId)
+      const category = categories.value.find(c => c.id === categoryId)
       return category ? category.name : categoryId
     }
 
-    /**
-     * 计算属性：根据筛选条件动态过滤产品列表
-     * 自动响应搜索、分类、状态变化
-     */
-    const filteredProducts = computed(() => {
-      return products.value.filter(product => {
-        // 搜索筛选：匹配产品名称或 ID
-        const matchSearch = productSearch.value === '' ||
-          product.name.toLowerCase().includes(productSearch.value.toLowerCase()) ||
-          product.id.toString().includes(productSearch.value)
-        // 分类筛选：匹配选中的分类
-        const matchCategory = productCategory.value === '' ||
-          product.category === productCategory.value
-        // 状态筛选：匹配选中的状态
-        const matchStatus = productStatus.value === '' ||
-          product.status === productStatus.value
-        return matchSearch && matchCategory && matchStatus
-      })
+    // 后端字段映射到前端
+    const mapProduct = (p) => ({
+      ...p,
+      category: p.categoryId,
+      image: p.imageUrl,
+      tags: p.tags ? p.tags.split(',').filter(t => t) : [],
+      status: p.status ? p.status.toLowerCase() : 'onshelf'
     })
 
-    /**
-     * 切换单个产品的上下架状态
-     * @param {Object} product - 产品对象
-     * @param {string} newStatus - 新状态 ('onshelf' 或 'offshelf')
-     */
-    const toggleProductStatus = (product, newStatus) => {
-      product.status = newStatus
-      updateProductData(product.id, { status: newStatus })
-      triggerRef(products)
+    // 前端字段映射到后端
+    const mapProductToBackend = (p) => ({
+      ...p,
+      categoryId: p.category,
+      imageUrl: p.image,
+      tags: Array.isArray(p.tags) ? p.tags.join(',') : (p.tags || ''),
+      status: p.status ? p.status.toUpperCase() : 'ONSHELF'
+    })
+
+    const loadProducts = async () => {
+      try {
+        const statusParam = productStatus.value ? productStatus.value.toUpperCase() : undefined
+        const res = await listProductsApi({
+          keyword: productSearch.value || undefined,
+          categoryId: productCategory.value || undefined,
+          status: statusParam,
+          page: currentPage.value,
+          size: pageSize.value
+        })
+        const data = res.data
+        products.value = (data.records || []).map(mapProduct)
+        total.value = data.total || 0
+        triggerRef(products)
+      } catch (error) {
+        ElMessage.error('加载商品列表失败')
+      }
     }
 
-    /**
-     * 批量上架/下架所有筛选后的产品
-     * @param {string} status - 目标状态 ('onshelf' 或 'offshelf')
-     */
+    const loadCategories = async () => {
+      try {
+        const res = await listCategoriesApi()
+        categories.value = res.data || []
+      } catch (error) {
+        console.error('加载分类失败', error)
+      }
+    }
+
+    const filteredProducts = computed(() => {
+      return products.value
+    })
+
+    const toggleProductStatus = async (product, newStatus) => {
+      try {
+        await updateProductStatusApi(product.id, newStatus.toUpperCase())
+        product.status = newStatus
+        triggerRef(products)
+        ElMessage.success(newStatus === 'onshelf' ? '已上架' : '已下架')
+      } catch (error) {
+        ElMessage.error('状态更新失败')
+      }
+    }
+
     const batchShelf = async (status) => {
       batchLoading.value = true
-      
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      products.value.forEach(product => {
-        product.status = status
-      })
-      persistProducts(products.value)
-      triggerRef(products)
-      
-      batchLoading.value = false
+      try {
+        const ids = filteredProducts.value.map(p => p.id)
+        await updateBatchProductStatusApi(ids, status.toUpperCase())
+        await loadProducts()
+        ElMessage.success(status === 'onshelf' ? '批量上架成功' : '批量下架成功')
+      } catch (error) {
+        ElMessage.error('批量操作失败')
+      } finally {
+        batchLoading.value = false
+      }
     }
 
-    /**
-     * 显示产品详情对话框
-     * @param {Object} product - 要查看的产品对象
-     */
     const showProductDetail = (product) => {
       selectedProduct.value = product
-      // 初始化折扣值
       tempDiscount.value = product.discount || 1
       tempDiscountDisplay.value = (tempDiscount.value * 10)
       detailDialogVisible.value = true
     }
 
-    /**
-     * 显示添加商品对话框，并重置表单
-     */
     const showAddProductDialog = () => {
       newProductForm.value = {
         id: '',
@@ -588,11 +590,7 @@ export default {
       newProductForm.value.imageBase64 = ''
     }
 
-    /**
-     * 处理添加商品表单提交
-     * 验证表单 -> 创建新产品 -> 添加到数据源
-     */
-    const handleAddProduct = () => {
+    const handleAddProduct = async () => {
       if (!newProductForm.value.id || !newProductForm.value.name || !newProductForm.value.category) {
         ElMessage.warning('请填写商品 ID、商品名称和分类')
         return
@@ -605,68 +603,61 @@ export default {
       const newProduct = {
         id: newProductForm.value.id,
         name: newProductForm.value.name,
-        category: newProductForm.value.category,
+        categoryId: newProductForm.value.category,
         price: newProductForm.value.price,
         unit: newProductForm.value.unit,
         stock: newProductForm.value.stock,
-        image: newProductForm.value.imageBase64 || '',
+        imageUrl: newProductForm.value.imageBase64 || '',
         description: newProductForm.value.description,
         barCode: newProductForm.value.barCode,
         discount: 1,
         isHot: false,
-        tags: tags,
-        status: newProductForm.value.onshelf ? 'onshelf' : 'offshelf'
+        tags: tags.join(','),
+        status: newProductForm.value.onshelf ? 'ONSHELF' : 'OFFSHELF'
       }
 
-      const success = addProductData(newProduct)
-      if (!success) {
-        ElMessage.error('商品 ID 已存在，请使用其他 ID')
-        return
+      try {
+        await addProductApi(newProduct)
+        await loadProducts()
+        ElMessage.success('商品添加成功')
+        addProductDialogVisible.value = false
+      } catch (error) {
+        const msg = error.response?.data?.msg || '添加商品失败'
+        ElMessage.error(msg)
       }
-
-      products.value = loadProducts()
-      triggerRef(products)
-
-      ElMessage.success('商品添加成功')
-      addProductDialogVisible.value = false
     }
 
-    /**
-     * 处理滑块折扣变化
-     * @param {number} value - 折扣值（0-1）
-     */
     const handleDiscountChange = (value) => {
       tempDiscountDisplay.value = Math.round(value * 10)
     }
 
-    /**
-     * 处理输入框折扣变化
-     * @param {number} value - 折扣值（0-10）
-     */
     const handleDiscountInputChange = (value) => {
       tempDiscount.value = value / 10
     }
 
-    /**
-     * 移除折扣
-     */
     const removeDiscount = () => {
       tempDiscount.value = 1
       tempDiscountDisplay.value = 10
     }
 
-    /**
-     * 保存折扣设置
-     */
-    const saveDiscount = () => {
+    const saveDiscount = async () => {
       if (selectedProduct.value) {
-        selectedProduct.value.discount = tempDiscount.value
-        updateProductData(selectedProduct.value.id, { discount: tempDiscount.value })
-        triggerRef(products)
-        ElMessage.success('折扣设置已保存')
-        detailDialogVisible.value = false
+        try {
+          await updateProductDiscountApi(selectedProduct.value.id, tempDiscount.value)
+          selectedProduct.value.discount = tempDiscount.value
+          triggerRef(products)
+          ElMessage.success('折扣设置已保存')
+          detailDialogVisible.value = false
+        } catch (error) {
+          ElMessage.error('折扣保存失败')
+        }
       }
     }
+
+    onMounted(() => {
+      loadCategories()
+      loadProducts()
+    })
 
     return {
       products,
@@ -683,7 +674,6 @@ export default {
       newProductForm,
       tempDiscount,
       tempDiscountDisplay,
-      discountMarks,
       getCategoryName,
       getIconComponent,
       toggleProductStatus,

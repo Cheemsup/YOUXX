@@ -14,8 +14,10 @@ export default {
       const hasCleaned = localStorage.getItem(CLEANUP_KEY)
       
       if (!hasCleaned) {
-        sessionStorage.removeItem('username')
-        sessionStorage.removeItem('userRole')
+        localStorage.removeItem('token')
+        localStorage.removeItem('userId')
+        localStorage.removeItem('username')
+        localStorage.removeItem('userRole')
         
         localStorage.setItem(CLEANUP_KEY, 'true')
         console.log('数据清理完成：已清理登录状态数据')

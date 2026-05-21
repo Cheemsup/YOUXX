@@ -201,7 +201,7 @@ export default {
   emits: ['update:settings'],
   setup(props, { emit }) {
     const router = useRouter()
-    const currentUsername = sessionStorage.getItem('username') || ''
+    const currentUsername = localStorage.getItem('username') || ''
     const localSettings = ref({ ...props.settings })
     const emailSubscribe = ref(true)
     const themeMode = ref('light')
@@ -255,8 +255,10 @@ export default {
           type: 'warning'
         }
       ).then(() => {
-        sessionStorage.removeItem('username')
-        sessionStorage.removeItem('userRole')
+        localStorage.removeItem('token')
+        localStorage.removeItem('userId')
+        localStorage.removeItem('username')
+        localStorage.removeItem('userRole')
         ElMessage.success('已成功退出')
         router.push('/login')
       }).catch(() => {})

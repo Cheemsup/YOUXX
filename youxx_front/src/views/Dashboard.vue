@@ -97,7 +97,6 @@
             />
             <DashboardOrder
               v-else-if="activeMenu === 'order'"
-              :orders="orders"
               @order-updated="loadData"
             />
             <DashboardSettings
@@ -129,7 +128,7 @@ import {
 } from '@element-plus/icons-vue'
 // 导入数据管理模块
 import { getUsers } from '@/data/users.js'
-import { getOrders, updateOrderStatus } from '@/data/orders.js'
+import { listOrdersApi } from '@/services/api.js'
 import { getUnreadCount } from '@/data/messages.js'
 // 导入子组件
 import DashboardHome from './admin/DashboardHome.vue'
@@ -177,16 +176,21 @@ export default {
     const orders = ref([])
 
     // 加载数据
-    const loadData = () => {
+    const loadData = async () => {
       users.value = getUsers()
-      orders.value = getOrders()
+      try {
+        const res = await listOrdersApi({ page: 1, size: 999 })
+        orders.value = res.data.records || []
+      } catch (e) {
+        console.error('加载订单失败', e)
+      }
       // 更新未读消息数
       unreadCount.value = getUnreadCount()
     }
 
     // 组件挂载时执行
     onMounted(() => {
-      const username = sessionStorage.getItem('username')
+      const username = localStorage.getItem('username')
       currentUser.value = username || '用户'
       loadData()
     })
@@ -200,8 +204,10 @@ export default {
     const handleCommand = (command) => {
       if (command === 'logout') {
         // 清除登录信息并跳转到登录页
-        sessionStorage.removeItem('username')
-        sessionStorage.removeItem('userRole')
+        localStorage.removeItem('token')
+        localStorage.removeItem('userId')
+        localStorage.removeItem('username')
+        localStorage.removeItem('userRole')
         router.push('/login')
       } else if (command === 'profile') {
         alert('个人信息功能开发中...')

@@ -226,7 +226,7 @@ import {
   Shop,
   ChatDotRound
 } from '@element-plus/icons-vue'
-import { getOrdersByUsername, createOrder } from '@/data/orders.js'
+import { listMyOrdersApi, createOrderApi } from '@/services/api.js'
 import { getUserByUsername } from '@/data/users.js'
 import UserHome from './user/UserHome.vue'
 import UserProfile from './user/UserProfile.vue'
@@ -292,12 +292,12 @@ export default {
     })
 
     const getUserStorageKey = (key) => {
-      const username = sessionStorage.getItem('username') || ''
+      const username = localStorage.getItem('username') || ''
       return `${key}_${username}`
     }
 
-    onMounted(() => {
-      const username = sessionStorage.getItem('username')
+    onMounted(async () => {
+      const username = localStorage.getItem('username')
       currentUser.value = username || '用户'
       
       const user = getUserByUsername(username)
@@ -314,7 +314,18 @@ export default {
         cartItems.value = JSON.parse(savedCart)
       }
 
-      orders.value = getOrdersByUsername(username)
+      try {
+        const res = await listMyOrdersApi()
+        orders.value = (res.data || []).map(o => ({
+          ...o,
+          customer: o.username,
+          status: { 'PENDING': '待发货', 'SHIPPED': '已发货', 'COMPLETED': '已完成', 'CANCELLED': '已取消' }[o.status] || o.status,
+          date: o.createTime ? o.createTime.substring(0, 10) : '',
+          items: (o.items || []).map(item => ({ ...item, name: item.productName }))
+        }))
+      } catch (e) {
+        console.error('加载订单失败', e)
+      }
     })
 
     const handleMenuSelect = (index) => {
@@ -323,8 +334,10 @@ export default {
 
     const handleCommand = (command) => {
       if (command === 'logout') {
-        sessionStorage.removeItem('username')
-        sessionStorage.removeItem('userRole')
+        localStorage.removeItem('token')
+        localStorage.removeItem('userId')
+        localStorage.removeItem('username')
+        localStorage.removeItem('userRole')
         router.push('/login')
       } else if (command === 'profile') {
         activeMenu.value = 'profile'
@@ -391,25 +404,43 @@ export default {
       localStorage.setItem(getUserStorageKey('cartItems'), JSON.stringify(cartItems.value))
     }
 
-    const handleCheckout = () => {
+    const handleCheckout = async () => {
       if (cartItems.value.length === 0) {
         ElMessage.warning('购物车是空的')
         return
       }
 
-      const username = sessionStorage.getItem('username')
-      const newOrder = createOrder(cartItems.value, cartTotal.value, username)
+      try {
+        const items = cartItems.value.map(item => ({
+          productId: item.id,
+          quantity: item.quantity
+        }))
+        const orderData = {}
+        const res = await createOrderApi(orderData, items)
+        const newOrder = res.data
 
-      orders.value = getOrdersByUsername(username)
+        // 刷新订单列表
+        const ordersRes = await listMyOrdersApi()
+        orders.value = (ordersRes.data || []).map(o => ({
+          ...o,
+          customer: o.username,
+          status: { 'PENDING': '待发货', 'SHIPPED': '已发货', 'COMPLETED': '已完成', 'CANCELLED': '已取消' }[o.status] || o.status,
+          date: o.createTime ? o.createTime.substring(0, 10) : '',
+          items: (o.items || []).map(i => ({ ...i, name: i.productName }))
+        }))
 
-      cartItems.value = []
-      localStorage.removeItem(getUserStorageKey('cartItems'))
+        cartItems.value = []
+        localStorage.removeItem(getUserStorageKey('cartItems'))
 
-      showCart.value = false
+        showCart.value = false
 
-      ElMessage.success(`订单 ${newOrder.id} 下单成功！`)
+        ElMessage.success(`订单 ${newOrder.id} 下单成功！`)
 
-      activeMenu.value = 'orders'
+        activeMenu.value = 'orders'
+      } catch (e) {
+        console.error('下单失败', e)
+        ElMessage.error('下单失败，请重试')
+      }
     }
 
     const viewOrderDetail = (order) => {
@@ -417,9 +448,19 @@ export default {
       showOrderDetail.value = true
     }
 
-    const refreshOrders = () => {
-      const username = sessionStorage.getItem('username')
-      orders.value = getOrdersByUsername(username)
+    const refreshOrders = async () => {
+      try {
+        const res = await listMyOrdersApi()
+        orders.value = (res.data || []).map(o => ({
+          ...o,
+          customer: o.username,
+          status: { 'PENDING': '待发货', 'SHIPPED': '已发货', 'COMPLETED': '已完成', 'CANCELLED': '已取消' }[o.status] || o.status,
+          date: o.createTime ? o.createTime.substring(0, 10) : '',
+          items: (o.items || []).map(i => ({ ...i, name: i.productName }))
+        }))
+      } catch (e) {
+        console.error('刷新订单失败', e)
+      }
     }
 
     const handleBuyAgain = (order) => {

@@ -166,7 +166,7 @@ import {
   MilkTea,
   Food
 } from '@element-plus/icons-vue'
-import { categories, getProducts, getHotProducts, getProductsByCategory } from '@/data/products.js'
+import { listProductsApi, listHotProductsApi, listCategoriesApi } from '@/services/api.js'
 import BannerCartoonCharacter from '@/components/BannerCartoonCharacter.vue'
 import { shallowRef, triggerRef } from 'vue'
 
@@ -199,11 +199,10 @@ export default {
     const priceRange = ref([0, 50])
     const selectedTags = ref([])
     
-    const products = shallowRef(getProducts())
+    const products = shallowRef([])
+    const hotProducts = ref([])
+    const categories = ref([])
 
-    const hotProducts = getHotProducts()
-
-    // 图标映射表：将分类图标名称映射到对应的组件
     const iconMap = {
       'Coffee': Coffee,
       'Sugar': Sugar,
@@ -213,11 +212,6 @@ export default {
       'Food': Food
     }
 
-    /**
-     * 获取图标组件
-     * @param {string} iconName - 图标名称
-     * @returns {Component} 图标组件
-     */
     const getIconComponent = (iconName) => {
       return iconMap[iconName] || Goods
     }
@@ -264,9 +258,48 @@ export default {
       bannerHoverStates.value[index] = false
     }
 
+    // 后端字段映射到前端
+    const mapProduct = (p) => ({
+      ...p,
+      category: p.categoryId,
+      image: p.imageUrl,
+      tags: p.tags ? p.tags.split(',').filter(t => t) : [],
+      status: p.status ? p.status.toLowerCase() : 'onshelf'
+    })
+
+    const loadProducts = async () => {
+      try {
+        const res = await listProductsApi({ status: 'ONSHELF', page: 1, size: 200 })
+        products.value = (res.data.records || []).map(mapProduct)
+        triggerRef(products)
+      } catch (error) {
+        console.error('加载商品失败', error)
+      }
+    }
+
+    const loadHotProducts = async () => {
+      try {
+        const res = await listHotProductsApi()
+        hotProducts.value = (res.data || []).map(mapProduct)
+      } catch (error) {
+        console.error('加载热销商品失败', error)
+      }
+    }
+
+    const loadCategories = async () => {
+      try {
+        const res = await listCategoriesApi()
+        categories.value = res.data || []
+      } catch (error) {
+        console.error('加载分类失败', error)
+      }
+    }
+
     const allTags = computed(() => {
       const tags = new Set()
-      products.forEach(p => p.tags.forEach(tag => tags.add(tag)))
+      products.value.forEach(p => {
+        if (p.tags) p.tags.forEach(tag => tags.add(tag))
+      })
       return Array.from(tags).sort()
     })
 
@@ -280,31 +313,29 @@ export default {
     const currentCategoryName = computed(() => {
       if (searchKeyword.value) return '搜索结果'
       if (activeCategory.value === 'all') return '全部商品'
-      const cat = categories.find(c => c.id === activeCategory.value)
+      const cat = categories.value.find(c => c.id === activeCategory.value)
       return cat ? cat.name : '商品'
     })
 
     const hotProductsFiltered = computed(() => {
-      return hotProducts.filter(p => p.status === 'onshelf')
+      return hotProducts.value.filter(p => p.status === 'onshelf')
     })
 
     const filteredProducts = computed(() => {
       let result = products.value
       
-      // 分类筛选
       if (activeCategory.value !== 'all') {
         result = result.filter(p => p.category === activeCategory.value)
       }
 
-      // 只显示上架的商品
       result = result.filter(p => p.status === 'onshelf')
 
       if (searchKeyword.value) {
         const keyword = searchKeyword.value.toLowerCase()
         result = result.filter(p =>
           p.name.toLowerCase().includes(keyword) ||
-          p.description.toLowerCase().includes(keyword) ||
-          p.tags.some(tag => tag.toLowerCase().includes(keyword))
+          (p.description && p.description.toLowerCase().includes(keyword)) ||
+          (p.tags && p.tags.some(tag => tag.toLowerCase().includes(keyword)))
         )
       }
 
@@ -315,7 +346,7 @@ export default {
 
       if (selectedTags.value.length > 0) {
         result = result.filter(p =>
-          selectedTags.value.some(tag => p.tags.includes(tag))
+          selectedTags.value.some(tag => p.tags && p.tags.includes(tag))
         )
       }
 
@@ -331,18 +362,16 @@ export default {
       emit('addToCart', product)
     }
 
-    // 刷新商品数据
     const refreshProducts = () => {
-      products.value = getProducts()
-      triggerRef(products)
+      loadProducts()
+      loadHotProducts()
     }
 
-    // 组件挂载时刷新数据
     onMounted(() => {
+      loadCategories()
       refreshProducts()
     })
 
-    // 组件激活时（从其他页面返回）刷新数据
     onActivated(() => {
       refreshProducts()
     })
