@@ -102,7 +102,7 @@ export default {
     }
 
     onMounted(() => {
-      currentUser.value = sessionStorage.getItem('username') || '用户'
+      currentUser.value = localStorage.getItem('username') || '用户'
       loadMessages()
     })
 

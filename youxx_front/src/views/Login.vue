@@ -181,7 +181,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'
-import { validateUser, registerUser } from '@/data/users.js'
+import { loginApi, registerApi } from '@/services/api.js'
 
 const router = useRouter()
 
@@ -341,36 +341,42 @@ const toggleMode = () => {
 const handleLogin = async () => {
   if (!loginFormRef.value) return
   
-  await loginFormRef.value.validate((valid) => {
+  await loginFormRef.value.validate(async (valid) => {
     if (valid) {
       loading.value = true
-      setTimeout(() => {
-        const user = validateUser(formData.value.username, formData.value.password, formData.value.role)
-        
-        if (user) {
-          sessionStorage.setItem('username', formData.value.username)
-          sessionStorage.setItem('userRole', formData.value.role)
+      try {
+        const res = await loginApi(
+          formData.value.username,
+          formData.value.password,
+          formData.value.role
+        )
+        const data = res.data
 
-          if (formData.value.remember) {
-            localStorage.setItem('remember', 'true')
-            localStorage.setItem('rememberUsername', formData.value.username)
-          } else {
-            localStorage.removeItem('remember')
-            localStorage.removeItem('rememberUsername')
-          }
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('userId', data.userId)
+        localStorage.setItem('username', data.username)
+        localStorage.setItem('userRole', data.role)
 
-          if (formData.value.role === 'admin') {
-            router.push('/dashboard')
-          } else {
-            router.push('/dashboard-user')
-          }
-          ElMessage.success('登录成功！')
+        if (formData.value.remember) {
+          localStorage.setItem('remember', 'true')
+          localStorage.setItem('rememberUsername', formData.value.username)
         } else {
-          ElMessage.error('用户名或密码错误')
+          localStorage.removeItem('remember')
+          localStorage.removeItem('rememberUsername')
         }
 
+        if (data.role === 'ADMIN') {
+          router.push('/dashboard')
+        } else {
+          router.push('/dashboard-user')
+        }
+        ElMessage.success('登录成功！')
+      } catch (error) {
+        const msg = error.response?.data?.msg || '登录失败'
+        ElMessage.error(msg)
+      } finally {
         loading.value = false
-      }, 1000)
+      }
     }
   })
 }
@@ -378,25 +384,23 @@ const handleLogin = async () => {
 const handleRegister = async () => {
   if (!registerFormRef.value) return
   
-  await registerFormRef.value.validate((valid) => {
+  await registerFormRef.value.validate(async (valid) => {
     if (valid) {
       loading.value = true
-      setTimeout(() => {
-        const result = registerUser(
+      try {
+        await registerApi(
           registerFormData.value.username,
           registerFormData.value.password,
           registerFormData.value.phone
         )
-        
-        if (result.success) {
-          ElMessage.success(result.message)
-          toggleMode()
-        } else {
-          ElMessage.error(result.message)
-        }
-
+        ElMessage.success('注册成功！请登录')
+        toggleMode()
+      } catch (error) {
+        const msg = error.response?.data?.msg || '注册失败'
+        ElMessage.error(msg)
+      } finally {
         loading.value = false
-      }, 1000)
+      }
     }
   })
 }

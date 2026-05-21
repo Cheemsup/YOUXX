@@ -221,9 +221,9 @@
 </template>
 
 <script>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { User, Goods, Document, Money, Bell, Clock, Warning, ChatDotRound, InfoFilled, Box, Top, Bottom, Minus, Calendar, CircleCheck } from '@element-plus/icons-vue'
-import { getProducts as loadProducts, categories as categoriesData } from '../../data/products'
+import { listProductsApi, listCategoriesApi } from '@/services/api.js'
 import { getMessages } from '@/data/messages.js'
 
 export default {
@@ -236,11 +236,34 @@ export default {
   },
   emits: ['navigate'],
   setup(props) {
-    const products = loadProducts()
-    const categories = categoriesData
+    const products = ref([])
+    const categories = ref([])
+
+    const loadProducts = async () => {
+      try {
+        const res = await listProductsApi({ page: 1, size: 200 })
+        products.value = res.data.records || []
+      } catch (e) {
+        console.error('加载商品失败', e)
+      }
+    }
+
+    const loadCategories = async () => {
+      try {
+        const res = await listCategoriesApi()
+        categories.value = res.data || []
+      } catch (e) {
+        console.error('加载分类失败', e)
+      }
+    }
+
+    onMounted(() => {
+      loadProducts()
+      loadCategories()
+    })
 
     const getCategoryName = (categoryId) => {
-      const category = categories.find(c => c.id === categoryId)
+      const category = categories.value.find(c => c.id === categoryId)
       return category ? category.name : categoryId
     }
 

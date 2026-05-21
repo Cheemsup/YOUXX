@@ -41,13 +41,13 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = sessionStorage.getItem('username')
-  const userRole = sessionStorage.getItem('userRole')
-  
-  if (to.meta.requiresAuth && !isAuthenticated) {
+  const token = localStorage.getItem('token')
+  const userRole = localStorage.getItem('userRole')
+
+  if (to.meta.requiresAuth && !token) {
     next('/login')
-  } else if (to.path === '/login' && isAuthenticated && !to.query.force) {
-    if (userRole === 'admin') {
+  } else if (to.path === '/login' && token && !to.query.force) {
+    if (userRole === 'ADMIN') {
       next('/dashboard')
     } else {
       next('/dashboard-user')

@@ -188,7 +188,7 @@ import {
   Location,
   Plus
 } from '@element-plus/icons-vue'
-import { getOrders, getOrdersByUsername } from '@/data/orders.js'
+import { listMyOrdersApi } from '@/services/api.js'
 import { getUserByUsername, updateUser } from '@/data/users.js'
 
 export default {
@@ -215,7 +215,7 @@ export default {
     const avatarInput = ref(null)
     const avatarUrl = ref('')
     const localUserInfo = ref({ ...props.userInfo })
-    const currentUsername = sessionStorage.getItem('username') || ''
+    const currentUsername = localStorage.getItem('username') || ''
 
     const addressDialogVisible = ref(false)
     const editingIndex = ref(null)
@@ -363,13 +363,18 @@ export default {
       }).catch(() => {})
     }
 
-    const loadStats = () => {
-      const orders = getOrdersByUsername(currentUsername)
-      const completedOrders = orders.filter(o => o.status === '已完成')
-      stats.value.totalOrders = orders.length
-      stats.value.totalAmount = completedOrders
-        .reduce((sum, o) => sum + parseFloat(o.totalAmount), 0)
-        .toFixed(2)
+    const loadStats = async () => {
+      try {
+        const res = await listMyOrdersApi()
+        const orders = res.data || []
+        const completedOrders = orders.filter(o => o.status === 'COMPLETED')
+        stats.value.totalOrders = orders.length
+        stats.value.totalAmount = completedOrders
+          .reduce((sum, o) => sum + parseFloat(o.totalAmount), 0)
+          .toFixed(2)
+      } catch (e) {
+        console.error('加载订单统计失败', e)
+      }
     }
 
     return {
