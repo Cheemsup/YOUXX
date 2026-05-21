@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.youxx.mapper.UserMapper">
+
+    <resultMap id="UserResultMap" type="org.youxx.entity.User">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="phone" property="phone"/>
+        <result column="email" property="email"/>
+        <result column="role" property="role"/>
+        <result column="status" property="status"/>
+        <result column="avatar" property="avatar"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <resultMap id="UserWithoutPasswordMap" type="org.youxx.entity.User">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="phone" property="phone"/>
+        <result column="email" property="email"/>
+        <result column="role" property="role"/>
+        <result column="status" property="status"/>
+        <result column="avatar" property="avatar"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- ==================== 用户列表 ==================== -->
+    <select id="selectPage" resultMap="UserWithoutPasswordMap">
+        SELECT id, username, phone, email, role, status, avatar, create_time, update_time
+        FROM sys_user
+        WHERE 1=1
+        <if test="keyword != null and keyword != ''">
+            AND (username LIKE CONCAT('%', #{keyword}, '%')
+                 OR phone LIKE CONCAT('%', #{keyword}, '%')
+                 OR email LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="role != null and role != ''">
+            AND role = #{role}
+        </if>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM sys_user
+        WHERE 1=1
+        <if test="keyword != null and keyword != ''">
+            AND (username LIKE CONCAT('%', #{keyword}, '%')
+                 OR phone LIKE CONCAT('%', #{keyword}, '%')
+                 OR email LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="role != null and role != ''">
+            AND role = #{role}
+        </if>
+    </select>
+
+    <!-- ==================== 用户查询 ==================== -->
+    <select id="selectById" resultMap="UserWithoutPasswordMap">
+        SELECT id, username, phone, email, role, status, avatar, create_time, update_time
+        FROM sys_user
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByUsername" resultMap="UserResultMap">
+        SELECT id, username, password, phone, email, role, status, avatar, create_time, update_time
+        FROM sys_user
+        WHERE username = #{username}
+    </select>
+
+    <select id="selectByIdWithPassword" resultMap="UserResultMap">
+        SELECT id, username, password, phone, email, role, status, avatar, create_time, update_time
+        FROM sys_user
+        WHERE id = #{id}
+    </select>
+
+    <!-- ==================== 用户管理 ==================== -->
+    <insert id="insert">
+        INSERT INTO sys_user(id, username, password, phone, email, role, status, avatar, create_time, update_time)
+        VALUES(#{id}, #{username}, #{password}, #{phone}, #{email}, #{role}, #{status}, #{avatar}, #{createTime}, #{updateTime})
+    </insert>
+
+    <update id="update">
+        UPDATE sys_user
+        <set>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+            <if test="role != null">role = #{role},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateProfile">
+        UPDATE sys_user
+        <set>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE sys_user
+        SET password = #{password}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE sys_user
+        SET status = #{status}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM sys_user WHERE id = #{id}
+    </delete>
+
+    <select id="selectMaxIdByPrefix" resultType="string">
+        SELECT MAX(id) FROM sys_user WHERE id LIKE CONCAT(#{prefix}, '%')
+    </select>
+
+</mapper>
