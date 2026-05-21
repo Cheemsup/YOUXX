@@ -1,3 +1,25 @@
 spring:
+  profiles:
+    active: dev
   application:
     name: YOUXX
+  datasource:
+    url: ${spring.datasource.url}
+    driver-class-name: ${spring.datasource.driver-class-name}
+    username: ${spring.datasource.username}
+    password: ${spring.datasource.password}
+  data:
+    redis:
+      host: ${spring.data.redis.host}
+      port: ${spring.data.redis.port}
+      database: ${spring.data.redis.database}
+      timeout: ${spring.data.redis.timeout}
+
+server:
+  port: 8081
+
+youxx:
+  jwt:
+    secret-key: youxx-jwt-secret-key-2026-secure-token
+    ttl: 7200000
+    token-name: token
