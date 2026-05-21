@@ -4,11 +4,11 @@
 -- 排序规则: utf8mb4_general_ci
 -- ============================================
 
-CREATE DATABASE IF NOT EXISTS `youxx`
+CREATE DATABASE IF NOT EXISTS `youxx_db`
   DEFAULT CHARACTER SET utf8mb4
   COLLATE utf8mb4_general_ci;
 
-USE `youxx`;
+USE `youxx_db`;
 
 -- ============================================
 -- 1. 用户表 sys_user
