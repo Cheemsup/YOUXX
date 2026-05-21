@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.youxx.mapper.ProductMapper">
+
+    <!-- ==================== 通用结果映射 ==================== -->
+    <resultMap id="ProductResultMap" type="org.youxx.entity.Product">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="category_id" property="categoryId"/>
+        <result column="price" property="price"/>
+        <result column="unit" property="unit"/>
+        <result column="stock" property="stock"/>
+        <result column="image_url" property="imageUrl"/>
+        <result column="description" property="description"/>
+        <result column="bar_code" property="barCode"/>
+        <result column="discount" property="discount"/>
+        <result column="is_hot" property="isHot"/>
+        <result column="tags" property="tags"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <resultMap id="CategoryResultMap" type="org.youxx.entity.ProductCategory">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="icon" property="icon"/>
+        <result column="sort_order" property="sortOrder"/>
+    </resultMap>
+
+    <!-- ==================== 分类 ==================== -->
+    <select id="selectAllCategories" resultMap="CategoryResultMap">
+        SELECT id, name, icon, sort_order
+        FROM product_category
+        ORDER BY sort_order
+    </select>
+
+    <!-- ==================== 商品查询 ==================== -->
+    <select id="selectPage" resultMap="ProductResultMap">
+        SELECT id, name, category_id, price, unit, stock, image_url,
+               description, bar_code, discount, is_hot, tags, status,
+               create_time, update_time
+        FROM product
+        WHERE 1=1
+        <if test="keyword != null and keyword != ''">
+            AND (name LIKE CONCAT('%', #{keyword}, '%')
+                 OR description LIKE CONCAT('%', #{keyword}, '%')
+                 OR bar_code = #{keyword})
+        </if>
+        <if test="categoryId != null and categoryId != ''">
+            AND category_id = #{categoryId}
+        </if>
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM product
+        WHERE 1=1
+        <if test="keyword != null and keyword != ''">
+            AND (name LIKE CONCAT('%', #{keyword}, '%')
+                 OR description LIKE CONCAT('%', #{keyword}, '%')
+                 OR bar_code = #{keyword})
+        </if>
+        <if test="categoryId != null and categoryId != ''">
+            AND category_id = #{categoryId}
+        </if>
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <select id="selectById" resultMap="ProductResultMap">
+        SELECT id, name, category_id, price, unit, stock, image_url,
+               description, bar_code, discount, is_hot, tags, status,
+               create_time, update_time
+        FROM product
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectHot" resultMap="ProductResultMap">
+        SELECT id, name, category_id, price, unit, stock, image_url,
+               description, bar_code, discount, is_hot, tags, status,
+               create_time, update_time
+        FROM product
+        WHERE is_hot = 1 AND status = 'ONSHELF'
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- ==================== 商品管理 ==================== -->
+    <insert id="insert">
+        INSERT INTO product(id, name, category_id, price, unit, stock, image_url,
+                            description, bar_code, discount, is_hot, tags, status,
+                            create_time, update_time)
+        VALUES(#{id}, #{name}, #{categoryId}, #{price}, #{unit}, #{stock}, #{imageUrl},
+               #{description}, #{barCode}, #{discount}, #{isHot}, #{tags}, #{status},
+               #{createTime}, #{updateTime})
+    </insert>
+
+    <update id="update">
+        UPDATE product
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="unit != null">unit = #{unit},</if>
+            <if test="stock != null">stock = #{stock},</if>
+            <if test="imageUrl != null">image_url = #{imageUrl},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="barCode != null">bar_code = #{barCode},</if>
+            <if test="discount != null">discount = #{discount},</if>
+            <if test="isHot != null">is_hot = #{isHot},</if>
+            <if test="tags != null">tags = #{tags},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE product
+        SET status = #{status}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateDiscount">
+        UPDATE product
+        SET discount = #{discount}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="deductStock">
+        UPDATE product
+        SET stock = stock - #{quantity}
+        WHERE id = #{id} AND stock >= #{quantity}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM product WHERE id = #{id}
+    </delete>
+
+</mapper>
