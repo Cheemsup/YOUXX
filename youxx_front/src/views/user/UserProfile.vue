@@ -188,8 +188,7 @@ import {
   Location,
   Plus
 } from '@element-plus/icons-vue'
-import { listMyOrdersApi } from '@/services/api.js'
-import { getUserByUsername, updateUser } from '@/data/users.js'
+import { listMyOrdersApi, getProfileApi, updateUserApi } from '@/services/api.js'
 
 export default {
   name: 'UserProfile',
@@ -240,12 +239,15 @@ export default {
       localUserInfo.value = { ...newVal }
     }, { deep: true })
 
-    onMounted(() => {
-      const user = getUserByUsername(currentUsername)
-      if (user) {
-        localUserInfo.value.username = user.username
+    onMounted(async () => {
+      try {
+        const res = await getProfileApi()
+        const user = res.data
+        localUserInfo.value.username = user.username || ''
         localUserInfo.value.phone = user.phone || ''
         localUserInfo.value.email = user.email || ''
+      } catch (e) {
+        console.error('加载用户信息失败', e)
       }
       
       loadAddresses()
@@ -273,16 +275,17 @@ export default {
       }
     }
 
-    const saveProfile = () => {
-      const user = getUserByUsername(currentUsername)
-      if (user) {
-        updateUser(user.id, {
+    const saveProfile = async () => {
+      try {
+        await updateUserApi(localStorage.getItem('userId'), {
           phone: localUserInfo.value.phone,
           email: localUserInfo.value.email
         })
+        emit('update:userInfo', localUserInfo.value)
+        ElMessage.success('个人信息已保存')
+      } catch (e) {
+        ElMessage.error(e.response?.data?.msg || '保存失败')
       }
-      emit('update:userInfo', localUserInfo.value)
-      ElMessage.success('个人信息已保存')
     }
 
     const loadAddresses = () => {

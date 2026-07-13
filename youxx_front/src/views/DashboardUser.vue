@@ -181,6 +181,12 @@
           <h4>商品清单</h4>
           <div class="detail-items">
             <div v-for="item in currentOrderDetail.items" :key="item.productId" class="detail-item">
+              <div class="detail-item-image" v-if="getDetailItemImage(item.productId)">
+                <img :src="getDetailItemImage(item.productId)" :alt="item.name" />
+              </div>
+              <div class="detail-item-image detail-item-placeholder" v-else>
+                <el-icon><Goods /></el-icon>
+              </div>
               <div class="detail-item-info">
                 <span class="detail-item-name">{{ item.name }}</span>
                 <span class="detail-item-spec">¥{{ item.price }}/{{ item.unit }}</span>
@@ -224,10 +230,11 @@ import {
   ArrowDown,
   Delete,
   Shop,
-  ChatDotRound
+  ChatDotRound,
+  Goods
 } from '@element-plus/icons-vue'
-import { listMyOrdersApi, createOrderApi } from '@/services/api.js'
-import { getUserByUsername } from '@/data/users.js'
+import { listMyOrdersApi, createOrderApi, getProfileApi, listProductsApi } from '@/services/api.js'
+import { getImageUrlByPath } from '@/utils/imageHelper.js'
 import UserHome from './user/UserHome.vue'
 import UserProfile from './user/UserProfile.vue'
 import UserOrder from './user/UserOrder.vue'
@@ -248,6 +255,7 @@ export default {
     Delete,
     Shop,
     ChatDotRound,
+    Goods,
     UserHome,
     UserProfile,
     UserOrder,
@@ -274,6 +282,7 @@ export default {
     })
 
     const orders = ref([])
+    const productsCache = ref([])
 
     const settings = ref({
       notifications: true,
@@ -300,12 +309,13 @@ export default {
       const username = localStorage.getItem('username')
       currentUser.value = username || '用户'
       
-      const user = getUserByUsername(username)
-      if (user) {
-        userInfo.value.username = user.username
+      try {
+        const res = await getProfileApi()
+        const user = res.data
+        userInfo.value.username = user.username || username || '用户'
         userInfo.value.phone = user.phone || ''
         userInfo.value.email = user.email || ''
-      } else {
+      } catch (e) {
         userInfo.value.username = username || '用户'
       }
 
@@ -325,6 +335,13 @@ export default {
         }))
       } catch (e) {
         console.error('加载订单失败', e)
+      }
+
+      try {
+        const res = await listProductsApi({ page: 1, size: 200 })
+        productsCache.value = res.data.records || []
+      } catch (e) {
+        console.error('加载商品缓存失败', e)
       }
     })
 
@@ -358,6 +375,11 @@ export default {
         '已取消': 'danger'
       }
       return statusMap[status] || 'info'
+    }
+
+    const getDetailItemImage = (productId) => {
+      const product = productsCache.value.find(p => p.id === productId)
+      return product ? getImageUrlByPath(product.imageUrl) : ''
     }
 
     const addToCart = (product) => {
@@ -503,6 +525,7 @@ export default {
       handleCommand,
       toggleSidebar,
       getStatusType,
+      getDetailItemImage,
       addToCart,
       updateCartQuantity,
       removeFromCart,
@@ -770,7 +793,8 @@ export default {
 
 .detail-item {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   padding: 10px 0;
   border-bottom: 1px dashed #e0e0e0;
 }
@@ -779,7 +803,31 @@ export default {
   border-bottom: none;
 }
 
+.detail-item-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f5f7fa;
+}
+
+.detail-item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-item-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c0c4cc;
+  font-size: 20px;
+}
+
 .detail-item-info {
+  flex: 1;
   display: flex;
   flex-direction: column;
 }

@@ -136,6 +136,7 @@ import {
   Bell
 } from '@element-plus/icons-vue'
 import { listProductsApi, updateOrderStatusApi, urgeOrderApi } from '@/services/api.js'
+import { getImageUrlByPath } from '@/utils/imageHelper.js'
 import { ElMessage } from 'element-plus'
 import MiniCartoonCharacter from '@/components/MiniCartoonCharacter.vue'
 
@@ -220,7 +221,7 @@ export default {
 
     const getProductImage = (productId) => {
       const product = productsCache.value.find(p => p.id === productId)
-      return product ? product.imageUrl : ''
+      return product ? getImageUrlByPath(product.imageUrl) : ''
     }
 
     const getFullOrderItems = (order) => {
@@ -228,7 +229,7 @@ export default {
         const product = productsCache.value.find(p => p.id === item.productId)
         return {
           ...item,
-          image: product ? product.imageUrl : '',
+          image: product ? getImageUrlByPath(product.imageUrl) : '',
           stock: product ? product.stock : 999
         }
       })

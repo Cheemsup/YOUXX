@@ -17,3 +17,10 @@ mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
+
+youxx:
+  deepseek:
+    model: deepseek-v4-flash
+    api-key: sk-da641ead3da74a08b8f6ecdb4a5f84c9
+    base-url: https://api.deepseek.com
+    send-thinking: true

@@ -80,13 +80,11 @@
             <DashboardHome
               v-if="activeMenu === 'dashboard'"
               :current-user="currentUser"
-              :users="users"
               :orders="orders"
               @navigate="handleMenuSelect"
             />
             <DashboardManageUser
               v-else-if="activeMenu === 'user'"
-              :users="users"
               :current-user="currentUser"
             />
             <DashboardMessages
@@ -127,9 +125,7 @@ import {
   ChatDotRound
 } from '@element-plus/icons-vue'
 // 导入数据管理模块
-import { getUsers } from '@/data/users.js'
-import { listOrdersApi } from '@/services/api.js'
-import { getUnreadCount } from '@/data/messages.js'
+import { listOrdersApi, getUnreadCountApi } from '@/services/api.js'
 // 导入子组件
 import DashboardHome from './admin/DashboardHome.vue'
 import DashboardManageUser from './admin/DashboardManageUser.vue'
@@ -170,14 +166,11 @@ export default {
     // 未读消息数量
     const unreadCount = ref(0)
 
-    // 用户列表数据
-    const users = ref([])
     // 订单列表数据
     const orders = ref([])
 
     // 加载数据
     const loadData = async () => {
-      users.value = getUsers()
       try {
         const res = await listOrdersApi({ page: 1, size: 999 })
         orders.value = res.data.records || []
@@ -185,7 +178,12 @@ export default {
         console.error('加载订单失败', e)
       }
       // 更新未读消息数
-      unreadCount.value = getUnreadCount()
+      try {
+        const res = await getUnreadCountApi()
+        unreadCount.value = res.data || 0
+      } catch (e) {
+        console.error('加载未读消息数失败', e)
+      }
     }
 
     // 组件挂载时执行
@@ -226,7 +224,6 @@ export default {
     return {
       activeMenu,
       currentUser,
-      users,
       orders,
       unreadCount,
       handleMenuSelect,

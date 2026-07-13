@@ -203,9 +203,9 @@ export default {
     const router = useRouter()
     const currentUsername = localStorage.getItem('username') || ''
     const localSettings = ref({ ...props.settings })
-    const emailSubscribe = ref(true)
-    const themeMode = ref('light')
-    const privacyMode = ref(false)
+    const emailSubscribe = ref(localStorage.getItem('setting_emailSubscribe') !== 'false')
+    const themeMode = ref(localStorage.getItem('setting_themeMode') || 'light')
+    const privacyMode = ref(localStorage.getItem('setting_privacyMode') === 'true')
     const showChangePassword = ref(false)
     const passwordForm = ref({
       oldPassword: '',
@@ -244,6 +244,18 @@ export default {
     watch(localSettings, () => {
       saveSettings()
     }, { deep: true })
+
+    watch(emailSubscribe, (val) => {
+      localStorage.setItem('setting_emailSubscribe', String(val))
+    })
+
+    watch(themeMode, (val) => {
+      localStorage.setItem('setting_themeMode', val)
+    })
+
+    watch(privacyMode, (val) => {
+      localStorage.setItem('setting_privacyMode', String(val))
+    })
 
     const handleLogout = () => {
       ElMessageBox.confirm(

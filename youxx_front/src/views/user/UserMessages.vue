@@ -60,9 +60,9 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { User, ChatDotRound, Shop, Promotion } from '@element-plus/icons-vue'
 import {
-  sendUserMessage,
-  getConversationMessages
-} from '@/data/messages.js'
+  getConversationMessagesApi,
+  sendMessageApi
+} from '@/services/api.js'
 
 export default {
   name: 'UserMessages',
@@ -77,22 +77,37 @@ export default {
     const inputMessage = ref('')
     const chatMessagesRef = ref(null)
     const currentUser = ref('')
+    const conversationId = ref('')
 
-    const loadMessages = () => {
-      if (!currentUser.value) return
-      const conversationId = `conv_${currentUser.value}`
-      currentMessages.value = getConversationMessages(conversationId)
-      nextTick(() => {
-        scrollToBottom()
-      })
+    const loadMessages = async () => {
+      if (!conversationId.value) return
+      try {
+        const res = await getConversationMessagesApi(conversationId.value)
+        currentMessages.value = (res.data || []).map(m => ({
+          id: m.id,
+          from: m.sender === 'ADMIN' ? 'admin' : 'user',
+          fromName: m.senderName,
+          content: m.content,
+          time: m.createTime
+        }))
+        nextTick(() => {
+          scrollToBottom()
+        })
+      } catch (e) {
+        console.error('加载消息失败', e)
+      }
     }
 
-    const sendMessage = () => {
-      if (!inputMessage.value.trim() || !currentUser.value) return
+    const sendMessage = async () => {
+      if (!inputMessage.value.trim() || !conversationId.value) return
 
-      sendUserMessage(currentUser.value, inputMessage.value.trim())
-      inputMessage.value = ''
-      loadMessages()
+      try {
+        await sendMessageApi(conversationId.value, inputMessage.value.trim())
+        inputMessage.value = ''
+        await loadMessages()
+      } catch (e) {
+        console.error('发送消息失败', e)
+      }
     }
 
     const scrollToBottom = () => {
@@ -103,6 +118,7 @@ export default {
 
     onMounted(() => {
       currentUser.value = localStorage.getItem('username') || '用户'
+      conversationId.value = `conv_${currentUser.value}`
       loadMessages()
     })
 

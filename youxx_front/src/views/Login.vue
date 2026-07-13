@@ -81,13 +81,6 @@
             </el-input>
           </el-form-item>
 
-          <el-form-item prop="role">
-            <el-select v-model="formData.role" placeholder="请选择身份" size="large" style="width: 100%;">
-              <el-option label="管理员" value="admin" />
-              <el-option label="用户" value="user" />
-            </el-select>
-          </el-form-item>
-
           <el-form-item>
             <el-checkbox v-model="formData.remember">记住我</el-checkbox>
           </el-form-item>
@@ -191,7 +184,6 @@ const isRegisterMode = ref(false)
 const formData = ref({
   username: '',
   password: '',
-  role: '',
   remember: false
 })
 const registerFormData = ref({
@@ -217,14 +209,6 @@ const validateUsername = (rule, value, callback) => {
 const validatePassword = (rule, value, callback) => {
   if (!value) {
     callback(new Error('请输入密码'))
-  } else {
-    callback()
-  }
-}
-
-const validateRole = (rule, value, callback) => {
-  if (!value) {
-    callback(new Error('请选择身份'))
   } else {
     callback()
   }
@@ -256,9 +240,6 @@ const loginRules = {
   ],
   password: [
     { required: true, validator: validatePassword, trigger: 'blur' }
-  ],
-  role: [
-    { required: true, validator: validateRole, trigger: 'change' }
   ]
 }
 
@@ -347,8 +328,7 @@ const handleLogin = async () => {
       try {
         const res = await loginApi(
           formData.value.username,
-          formData.value.password,
-          formData.value.role
+          formData.value.password
         )
         const data = res.data
 

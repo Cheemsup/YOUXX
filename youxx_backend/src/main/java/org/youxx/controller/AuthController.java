@@ -22,8 +22,7 @@ public class AuthController {
     public Result<Map<String, Object>> login(@RequestBody Map<String, String> body) {
         String username = body.get("username");
         String password = body.get("password");
-        String role = body.get("role");
-        Map<String, Object> result = authService.login(username, password, role);
+        Map<String, Object> result = authService.login(username, password);
         return Result.success(result);
     }
 

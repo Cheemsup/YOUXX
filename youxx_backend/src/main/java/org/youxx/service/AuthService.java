@@ -6,7 +6,7 @@ import java.util.Map;
 
 public interface AuthService {
 
-    Map<String, Object> login(String username, String password, String role);
+    Map<String, Object> login(String username, String password);
 
     User register(String username, String password, String phone);
 

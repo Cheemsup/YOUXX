@@ -28,16 +28,6 @@
               <span class="admin-info-value">{{ adminInfo.username }}</span>
             </div>
             <div class="admin-info-item">
-              <span class="admin-info-label">密码：</span>
-              <div class="password-wrapper">
-                <span class="admin-info-value password">{{ showPassword ? adminInfo.password : '••••••••' }}</span>
-                <el-icon class="password-toggle" @click="showPassword = !showPassword">
-                  <View v-if="showPassword" />
-                  <View v-else />
-                </el-icon>
-              </div>
-            </div>
-            <div class="admin-info-item">
               <span class="admin-info-label">电话号码：</span>
               <span class="admin-info-value">{{ adminInfo.phone }}</span>
             </div>
@@ -67,40 +57,43 @@
 </template>
 
 <script>
-import { reactive, ref, computed } from 'vue'
-import { User, View } from '@element-plus/icons-vue'
-import { getUsers } from '@/data/users.js'
+import { reactive, ref, onMounted } from 'vue'
+import { User } from '@element-plus/icons-vue'
+import { getProfileApi } from '@/services/api.js'
 
 export default {
   name: 'DashboardSettings',
   components: {
-    User,
-    View
+    User
   },
   setup() {
-    const showPassword = ref(false)
-    
-    // 获取当前管理员信息（从 localStorage 或默认第一个管理员）
-    const currentUser = localStorage.getItem('currentUser')
-    const users = getUsers()
-    const adminUser = users.find(u => u.username === currentUser) || users.find(u => u.role === 'admin') || {}
-    
     const adminInfo = reactive({
-      id: adminUser.id || '-',
-      username: adminUser.username || '-',
-      password: adminUser.password || '-',
-      phone: adminUser.phone || '-'
+      id: '-',
+      username: '-',
+      phone: '-'
     })
 
     const settings = reactive({
       systemName: '管理系统',
-      adminEmail: 'admin@example.com',
+      adminEmail: '',
       allowRegister: true,
       maintenanceMode: false
     })
 
+    onMounted(async () => {
+      try {
+        const res = await getProfileApi()
+        const user = res.data
+        adminInfo.id = user.id || '-'
+        adminInfo.username = user.username || '-'
+        adminInfo.phone = user.phone || '-'
+        settings.adminEmail = user.email || ''
+      } catch (e) {
+        console.error('加载管理员信息失败', e)
+      }
+    })
+
     return { 
-      showPassword,
       adminInfo,
       settings 
     }
@@ -197,27 +190,6 @@ export default {
   color: #303133;
   font-size: 14px;
   font-weight: 500;
-}
-
-.password-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.password {
-  font-family: 'Courier New', monospace;
-  letter-spacing: 2px;
-}
-
-.password-toggle {
-  cursor: pointer;
-  color: #909399;
-  transition: color 0.3s ease;
-}
-
-.password-toggle:hover {
-  color: #409eff;
 }
 
 .page-header {
