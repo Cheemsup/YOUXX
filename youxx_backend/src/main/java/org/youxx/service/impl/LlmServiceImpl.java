@@ -12,7 +12,7 @@ import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.youxx.common.config.DeepSeekProperties;
+import org.youxx.common.config.ChatModelProperties;
 import org.youxx.service.LlmService;
 
 import java.time.Duration;
@@ -28,19 +28,19 @@ public class LlmServiceImpl implements LlmService {
     private OpenAiChatModel openAiChatModel;
 
     @Autowired
-    private DeepSeekProperties deepSeekProperties;
+    private ChatModelProperties chatModelProperties;
 
     private OpenAiStreamingChatModel streamingChatModel;
 
     private OpenAiStreamingChatModel getStreamingChatModel() {
         if (streamingChatModel == null) {
             OpenAiStreamingChatModel.OpenAiStreamingChatModelBuilder builder = OpenAiStreamingChatModel.builder()
-                    .modelName(deepSeekProperties.getModel())
-                    .apiKey(deepSeekProperties.getApiKey())
-                    .baseUrl(deepSeekProperties.getBaseUrl())
+                    .modelName(chatModelProperties.getModel())
+                    .apiKey(chatModelProperties.getApiKey())
+                    .baseUrl(chatModelProperties.getBaseUrl())
                     .timeout(Duration.ofSeconds(60));
 
-            if (deepSeekProperties.isSendThinking()) {
+            if (chatModelProperties.isSendThinking()) {
                 builder.returnThinking(true);
                 builder.sendThinking(true);
             }

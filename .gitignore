@@ -33,3 +33,6 @@ build/
 .vscode/
 
 TODOS/
+
+### 本地敏感配置（含密钥，不入库） ###
+youxx_backend/src/main/resources/application-dev.yaml

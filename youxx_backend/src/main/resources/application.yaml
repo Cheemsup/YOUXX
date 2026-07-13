@@ -23,8 +23,8 @@ youxx:
     secret-key: youxx-jwt-secret-key-2026-secure-token
     ttl: 7200000
     token-name: token
-  deepseek:
-    model: deepseek-v4-flash
-    api-key: ${DEEPSEEK_API_KEY:}
-    base-url: https://api.deepseek.com
+  chatmodel:
+    model: ${CHATMODEL_MODEL:MiniMax-M3}
+    api-key: ${CHATMODEL_API_KEY:}
+    base-url: ${CHATMODEL_BASE_URL:https://jisu.aicodee.com/v1}
     send-thinking: true

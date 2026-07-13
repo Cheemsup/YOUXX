@@ -6,8 +6,8 @@ import org.springframework.stereotype.Component;
 
 @Data
 @Component
-@ConfigurationProperties(prefix = "youxx.deepseek")
-public class DeepSeekProperties {
+@ConfigurationProperties(prefix = "youxx.chatmodel")
+public class ChatModelProperties {
 
     private String model;
     private String apiKey;

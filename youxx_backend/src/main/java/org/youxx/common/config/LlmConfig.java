@@ -13,19 +13,19 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class LlmConfig {
 
-    private final DeepSeekProperties deepSeekProperties;
+    private final ChatModelProperties chatModelProperties;
 
     @Bean
     public OpenAiChatModel openAiChatModel() {
-        log.info("初始化 DeepSeek OpenAiChatModel, model={}, baseUrl={}", deepSeekProperties.getModel(), deepSeekProperties.getBaseUrl());
+        log.info("初始化 OpenAiChatModel, model={}, baseUrl={}", chatModelProperties.getModel(), chatModelProperties.getBaseUrl());
 
         OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
-                .modelName(deepSeekProperties.getModel())
-                .apiKey(deepSeekProperties.getApiKey())
-                .baseUrl(deepSeekProperties.getBaseUrl())
+                .modelName(chatModelProperties.getModel())
+                .apiKey(chatModelProperties.getApiKey())
+                .baseUrl(chatModelProperties.getBaseUrl())
                 .timeout(Duration.ofSeconds(60));
 
-        if (deepSeekProperties.isSendThinking()) {
+        if (chatModelProperties.isSendThinking()) {
             builder.returnThinking(true);
             builder.sendThinking(true);
         }
