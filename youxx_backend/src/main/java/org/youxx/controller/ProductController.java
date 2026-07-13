@@ -22,15 +22,11 @@ public class ProductController {
 
     private final ProductService productService;
 
-    // ==================== 分类 ====================
-
     @GetMapping("/category/list")
     public Result<List<ProductCategory>> listCategories() {
         List<ProductCategory> categories = productService.listCategories();
         return Result.success(categories);
     }
-
-    // ==================== 商品查询 ====================
 
     @GetMapping("/list")
     public Result<PageResult<Product>> list(
@@ -54,8 +50,6 @@ public class ProductController {
         List<Product> products = productService.listHotProducts();
         return Result.success(products);
     }
-
-    // ==================== 商品管理（管理员） ====================
 
     @PostMapping
     public Result<Product> add(@RequestBody Product product) {
@@ -97,8 +91,6 @@ public class ProductController {
         productService.deleteProduct(id);
         return Result.success();
     }
-
-    // ==================== 图片上传 ====================
 
     @PostMapping("/upload")
     public Result<Map<String, String>> upload(@RequestParam("file") MultipartFile file) {

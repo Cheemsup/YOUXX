@@ -14,7 +14,9 @@ import org.youxx.service.OrderService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Service
@@ -29,12 +31,19 @@ public class OrderServiceImpl implements OrderService {
         long total = orderMapper.count(keyword, status, beginTime, endTime);
         int offset = (page - 1) * size;
         List<Order> records = orderMapper.selectPage(keyword, status, beginTime, endTime, offset, size);
+        for (Order order : records) {
+            order.setItems(orderMapper.selectItemsByOrderId(order.getId()));
+        }
         return PageResult.of(records, total, page, size);
     }
 
     @Override
     public List<Order> listMyOrders(String userId, String status) {
-        return orderMapper.selectByUserId(userId, status);
+        List<Order> orders = orderMapper.selectByUserId(userId, status);
+        for (Order order : orders) {
+            order.setItems(orderMapper.selectItemsByOrderId(order.getId()));
+        }
+        return orders;
     }
 
     @Override
@@ -102,6 +111,13 @@ public class OrderServiceImpl implements OrderService {
         }
         if (order.getUpdateTime() == null) {
             order.setUpdateTime(LocalDateTime.now());
+        }
+
+        // 生成订单号
+        if (order.getId() == null || order.getId().isBlank()) {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+            String random = String.format("%04d", ThreadLocalRandom.current().nextInt(10000));
+            order.setId("ORD" + timestamp + random);
         }
 
         orderMapper.insert(order);

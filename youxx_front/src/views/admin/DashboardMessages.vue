@@ -126,13 +126,13 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 // 导入图标组件
 import { User, Avatar } from '@element-plus/icons-vue'
-// 导入消息数据管理函数
+// 导入消息 API
 import {
-  getConversations,
-  getConversationMessages,
-  sendMessage as sendMsg,
-  markConversationAsRead
-} from '@/data/messages.js'
+  getConversationsApi,
+  getConversationMessagesApi,
+  sendMessageApi,
+  markConversationReadApi
+} from '@/services/api.js'
 
 export default {
   name: 'DashboardMessages',
@@ -164,19 +164,39 @@ export default {
     })
 
     // 加载会话列表
-    const loadConversations = () => {
-      conversations.value = getConversations()
+    const loadConversations = async () => {
+      try {
+        const res = await getConversationsApi()
+        conversations.value = res.data || []
+      } catch (e) {
+        console.error('加载会话列表失败', e)
+      }
     }
 
     // 选择会话
-    const selectConversation = (conv) => {
+    const selectConversation = async (conv) => {
       currentConversationId.value = conv.id
       // 标记该会话为已读
-      markConversationAsRead(conv.id)
+      try {
+        await markConversationReadApi(conv.id)
+      } catch (e) {
+        console.error('标记已读失败', e)
+      }
       // 加载该会话的消息
-      currentMessages.value = getConversationMessages(conv.id)
+      try {
+        const res = await getConversationMessagesApi(conv.id)
+        currentMessages.value = (res.data || []).map(m => ({
+          id: m.id,
+          from: m.sender === 'ADMIN' ? 'admin' : m.sender,
+          fromName: m.senderName,
+          content: m.content,
+          time: m.createTime
+        }))
+      } catch (e) {
+        console.error('加载消息失败', e)
+      }
       // 重新加载会话列表（更新未读数）
-      loadConversations()
+      await loadConversations()
       
       // 滚动到最新消息
       nextTick(() => {
@@ -185,15 +205,25 @@ export default {
     }
 
     // 发送消息
-    const sendMessage = () => {
+    const sendMessage = async () => {
       if (!inputMessage.value.trim() || !currentConversationId.value) return
       
-      // 发送消息到数据层
-      sendMsg(currentConversationId.value, 'admin', '管理员', inputMessage.value.trim())
-      inputMessage.value = ''
-      // 重新加载消息列表
-      currentMessages.value = getConversationMessages(currentConversationId.value)
-      loadConversations()
+      try {
+        await sendMessageApi(currentConversationId.value, inputMessage.value.trim())
+        inputMessage.value = ''
+        // 重新加载消息列表
+        const res = await getConversationMessagesApi(currentConversationId.value)
+        currentMessages.value = (res.data || []).map(m => ({
+          id: m.id,
+          from: m.sender === 'ADMIN' ? 'admin' : m.sender,
+          fromName: m.senderName,
+          content: m.content,
+          time: m.createTime
+        }))
+        await loadConversations()
+      } catch (e) {
+        console.error('发送消息失败', e)
+      }
       
       // 滚动到最新消息
       nextTick(() => {

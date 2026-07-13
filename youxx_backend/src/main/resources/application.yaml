@@ -23,3 +23,8 @@ youxx:
     secret-key: youxx-jwt-secret-key-2026-secure-token
     ttl: 7200000
     token-name: token
+  deepseek:
+    model: deepseek-v4-flash
+    api-key: ${DEEPSEEK_API_KEY:}
+    base-url: https://api.deepseek.com
+    send-thinking: true

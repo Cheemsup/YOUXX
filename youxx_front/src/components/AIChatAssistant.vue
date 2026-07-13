@@ -111,7 +111,7 @@
 <script setup>
 import { ref, nextTick, watch } from 'vue'
 import { ChatDotRound, Close, Robot, User, Plus, Promotion, Delete } from '@element-plus/icons-vue'
-import { getAIResponse, askAboutProduct } from '@/services/aiService'
+import { getAIStreamResponse, getAIResponse } from '@/services/aiService'
 import { ElMessage } from 'element-plus'
 import MiniCartoonCharacter from './MiniCartoonCharacter.vue'
 
@@ -161,13 +161,51 @@ const sendMessage = async () => {
       role: msg.role,
       content: msg.content
     }))
-    const aiResponse = await getAIResponse(userMsg, conversationHistory)
-    processAIResponse(aiResponse)
-  } catch (error) {
-    messages.value.push({
+
+    // 先添加一条空的助手消息，用于流式填充
+    const assistantMsg = {
       role: 'assistant',
-      content: '抱歉，我现在有点忙，稍后再试吧~'
+      content: ''
+    }
+    messages.value.push(assistantMsg)
+    scrollToBottom()
+
+    // 使用SSE流式接口
+    const aiResponse = await getAIStreamResponse(userMsg, conversationHistory, (token, fullText) => {
+      assistantMsg.content = fullText
+      scrollToBottom()
     })
+
+    // 流式完成后，用解析后的结果更新消息
+    assistantMsg.content = aiResponse.content
+    if (aiResponse.type === 'product_list') {
+      assistantMsg.productList = aiResponse.products
+    } else if (aiResponse.type === 'product_detail') {
+      assistantMsg.product = aiResponse.product
+    }
+  } catch (error) {
+    // 如果流式失败，尝试普通接口
+    try {
+      const conversationHistory = messages.value.slice(0, -1).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
+      // 移除空的助手消息
+      if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant' && !messages.value[messages.value.length - 1].content) {
+        messages.value.pop()
+      }
+      const aiResponse = await getAIResponse(userMsg, conversationHistory)
+      processAIResponse(aiResponse)
+    } catch (fallbackError) {
+      // 移除空的助手消息
+      if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant' && !messages.value[messages.value.length - 1].content) {
+        messages.value.pop()
+      }
+      messages.value.push({
+        role: 'assistant',
+        content: '抱歉，我现在有点忙，稍后再试吧~'
+      })
+    }
   } finally {
     isTyping.value = false
     scrollToBottom()
@@ -201,8 +239,13 @@ const clearChat = () => {
 
 const handleProductClick = (product) => {
   emit('productClick', product)
-  const aiResponse = askAboutProduct(product)
-  processAIResponse(aiResponse)
+  // 直接在聊天中展示商品信息
+  const msg = {
+    role: 'assistant',
+    content: `好的，让我为您介绍一下${product.name}！`,
+    product: product
+  }
+  messages.value.push(msg)
   scrollToBottom()
 }
 
@@ -216,8 +259,12 @@ defineExpose({
       isOpen.value = true
       messages.value = [initMessage]
     }
-    const aiResponse = askAboutProduct(product)
-    processAIResponse(aiResponse)
+    const msg = {
+      role: 'assistant',
+      content: `好的，让我为您介绍一下${product.name}！`,
+      product: product
+    }
+    messages.value.push(msg)
     scrollToBottom()
   }
 })

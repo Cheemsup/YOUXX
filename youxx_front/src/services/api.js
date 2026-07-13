@@ -30,8 +30,8 @@ request.interceptors.response.use(
 )
 
 // ==================== 认证 ====================
-export function loginApi(username, password, role) {
-  return request.post('/auth/login', { username, password, role })
+export function loginApi(username, password) {
+  return request.post('/auth/login', { username, password })
 }
 
 export function registerApi(username, password, phone) {
@@ -167,6 +167,31 @@ export function urgeOrderApi(id) {
 
 export function deleteOrderApi(id) {
   return request.delete(`/order/${id}`)
+}
+
+// ==================== 消息管理 ====================
+export function getConversationsApi() {
+  return request.get('/message/conversations')
+}
+
+export function getConversationMessagesApi(conversationId) {
+  return request.get(`/message/conversation/${conversationId}`)
+}
+
+export function getUnreadCountApi() {
+  return request.get('/message/unread-count')
+}
+
+export function sendMessageApi(conversationId, content) {
+  return request.post('/message/send', { conversationId, content })
+}
+
+export function markConversationReadApi(conversationId) {
+  return request.put(`/message/conversation/${conversationId}/read`)
+}
+
+export function markAllReadApi() {
+  return request.put('/message/read-all')
 }
 
 export default request

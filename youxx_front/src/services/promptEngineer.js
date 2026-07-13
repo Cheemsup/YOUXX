@@ -1,7 +1,8 @@
-import { getProducts, categories } from '@/data/products.js'
+import { getProducts, getCategories } from '@/data/products.js'
 
 export function buildSystemPrompt() {
   const products = getProducts()
+  const categories = getCategories()
   const categoriesInfo = categories.map(cat => 
     `- ${cat.name} (id: ${cat.id})`
   ).join('\n')

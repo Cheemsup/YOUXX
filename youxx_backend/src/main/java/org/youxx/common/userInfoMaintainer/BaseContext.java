@@ -39,6 +39,11 @@ public class BaseContext {
         return userInfo != null ? userInfo.getUsername() : null;
     }
 
+    public static String getCurrentRole() {
+        UserInfo userInfo = threadLocal.get();
+        return userInfo != null ? userInfo.getRole() : null;
+    }
+
     public static void removeCurrentId() {
         threadLocal.remove();
     }

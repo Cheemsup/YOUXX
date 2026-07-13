@@ -167,6 +167,8 @@ import {
   Food
 } from '@element-plus/icons-vue'
 import { listProductsApi, listHotProductsApi, listCategoriesApi } from '@/services/api.js'
+import { getImageUrlByPath } from '@/utils/imageHelper.js'
+import { saveProducts, saveCategories } from '@/data/products.js'
 import BannerCartoonCharacter from '@/components/BannerCartoonCharacter.vue'
 import { shallowRef, triggerRef } from 'vue'
 
@@ -262,7 +264,7 @@ export default {
     const mapProduct = (p) => ({
       ...p,
       category: p.categoryId,
-      image: p.imageUrl,
+      image: getImageUrlByPath(p.imageUrl),
       tags: p.tags ? p.tags.split(',').filter(t => t) : [],
       status: p.status ? p.status.toLowerCase() : 'onshelf'
     })
@@ -270,8 +272,10 @@ export default {
     const loadProducts = async () => {
       try {
         const res = await listProductsApi({ status: 'ONSHELF', page: 1, size: 200 })
-        products.value = (res.data.records || []).map(mapProduct)
+        const mappedProducts = (res.data.records || []).map(mapProduct)
+        products.value = mappedProducts
         triggerRef(products)
+        saveProducts(mappedProducts)
       } catch (error) {
         console.error('加载商品失败', error)
       }
@@ -290,6 +294,7 @@ export default {
       try {
         const res = await listCategoriesApi()
         categories.value = res.data || []
+        saveCategories(res.data || [])
       } catch (error) {
         console.error('加载分类失败', error)
       }

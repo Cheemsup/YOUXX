@@ -23,7 +23,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtProperties jwtProperties;
 
     @Override
-    public Map<String, Object> login(String username, String password, String role) {
+    public Map<String, Object> login(String username, String password) {
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("密码不能为空");
         }
@@ -39,10 +39,6 @@ public class AuthServiceImpl implements AuthService {
 
         if ("DISABLED".equals(user.getStatus())) {
             throw new IllegalArgumentException("账号已被禁用，请联系管理员");
-        }
-
-        if (!role.equalsIgnoreCase(user.getRole())) {
-            throw new IllegalArgumentException("角色不匹配，请检查登录身份");
         }
 
         Map<String, Object> claims = new HashMap<>();

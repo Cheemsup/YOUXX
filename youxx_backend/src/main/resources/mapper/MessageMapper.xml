@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.youxx.mapper.MessageMapper">
+
+    <resultMap id="MessageResultMap" type="org.youxx.entity.Message">
+        <id column="id" property="id"/>
+        <result column="conversation_id" property="conversationId"/>
+        <result column="sender" property="sender"/>
+        <result column="sender_name" property="senderName"/>
+        <result column="content" property="content"/>
+        <result column="is_read" property="isRead"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="selectByConversationId" resultMap="MessageResultMap">
+        SELECT id, conversation_id, sender, sender_name, content, is_read, create_time
+        FROM message
+        WHERE conversation_id = #{conversationId}
+        ORDER BY create_time ASC
+    </select>
+
+    <select id="selectConversations" resultMap="MessageResultMap">
+        SELECT m.id, m.conversation_id, m.sender, m.sender_name, m.content, m.is_read, m.create_time
+        FROM message m
+        INNER JOIN (
+            SELECT conversation_id, MAX(create_time) AS max_time
+            FROM message
+            GROUP BY conversation_id
+        ) latest ON m.conversation_id = latest.conversation_id AND m.create_time = latest.max_time
+        ORDER BY m.create_time DESC
+    </select>
+
+    <select id="selectUnreadBySender" resultMap="MessageResultMap">
+        SELECT id, conversation_id, sender, sender_name, content, is_read, create_time
+        FROM message
+        WHERE sender != #{sender} AND is_read = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="countUnreadBySender" resultType="int">
+        SELECT COUNT(*)
+        FROM message
+        WHERE sender != #{sender} AND is_read = 0
+    </select>
+
+    <insert id="insert">
+        INSERT INTO message(id, conversation_id, sender, sender_name, content, is_read, create_time)
+        VALUES(#{id}, #{conversationId}, #{sender}, #{senderName}, #{content}, #{isRead}, #{createTime})
+    </insert>
+
+    <update id="markConversationAsRead">
+        UPDATE message
+        SET is_read = 1
+        WHERE conversation_id = #{conversationId} AND is_read = 0
+    </update>
+
+    <update id="markAsReadBySender">
+        UPDATE message
+        SET is_read = 1
+        WHERE sender != #{sender} AND is_read = 0
+    </update>
+
+</mapper>

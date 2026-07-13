@@ -20,16 +20,9 @@
             </div>
           </div>
           <div class="stat-info">
-            <div class="stat-number">{{ users.length }}</div>
+            <div class="stat-number">{{ userCount }}</div>
             <div class="stat-label">用户总数</div>
           </div>
-        </div>
-        <div class="stat-footer">
-          <span class="stat-trend up">
-            <el-icon><Top /></el-icon>
-            12%
-          </span>
-          <span class="stat-compare">较上月</span>
         </div>
       </div>
 
@@ -45,13 +38,6 @@
             <div class="stat-label">产品数量</div>
           </div>
         </div>
-        <div class="stat-footer">
-          <span class="stat-trend up">
-            <el-icon><Top /></el-icon>
-            8%
-          </span>
-          <span class="stat-compare">较上月</span>
-        </div>
       </div>
 
       <div class="stat-card" style="--card-color: #e6a23c;">
@@ -65,13 +51,6 @@
             <div class="stat-number">{{ orders.length }}</div>
             <div class="stat-label">订单总数</div>
           </div>
-        </div>
-        <div class="stat-footer">
-          <span class="stat-trend up">
-            <el-icon><Top /></el-icon>
-            23%
-          </span>
-          <span class="stat-compare">较上月</span>
         </div>
       </div>
 
@@ -87,13 +66,6 @@
             <div class="stat-label">今日收入</div>
           </div>
         </div>
-        <div class="stat-footer">
-          <span class="stat-trend up">
-            <el-icon><Top /></el-icon>
-            15%
-          </span>
-          <span class="stat-compare">较昨日</span>
-        </div>
       </div>
 
       <div class="stat-card" style="--card-color: #9b59b6;">
@@ -108,13 +80,6 @@
             <div class="stat-label">未读消息</div>
           </div>
         </div>
-        <div class="stat-footer">
-          <span class="stat-trend down">
-            <el-icon><Bottom /></el-icon>
-            5%
-          </span>
-          <span class="stat-compare">较昨日</span>
-        </div>
       </div>
 
       <div class="stat-card" style="--card-color: #3498db;">
@@ -128,13 +93,6 @@
             <div class="stat-number">{{ pendingOrders.length }}</div>
             <div class="stat-label">待办事件</div>
           </div>
-        </div>
-        <div class="stat-footer">
-          <span class="stat-trend">
-            <el-icon><Minus /></el-icon>
-            0%
-          </span>
-          <span class="stat-compare">较昨日</span>
         </div>
       </div>
     </div>
@@ -201,9 +159,9 @@
                 <el-tag size="small" type="warning">待发货</el-tag>
               </div>
               <div class="todo-info">
-                <span><el-icon><User /></el-icon> {{ order.customer }}</span>
-                <span><el-icon><Money /></el-icon> ¥{{ order.amount }}</span>
-                <span><el-icon><Calendar /></el-icon> {{ order.date }}</span>
+                <span><el-icon><User /></el-icon> {{ order.username }}</span>
+                <span><el-icon><Money /></el-icon> ¥{{ order.totalAmount }}</span>
+                <span><el-icon><Calendar /></el-icon> {{ order.createTime ? order.createTime.substring(0, 10) : '' }}</span>
               </div>
             </div>
             <el-button size="small" type="primary" round @click="$emit('navigate', 'order')">
@@ -222,22 +180,23 @@
 
 <script>
 import { computed, ref, onMounted } from 'vue'
-import { User, Goods, Document, Money, Bell, Clock, Warning, ChatDotRound, InfoFilled, Box, Top, Bottom, Minus, Calendar, CircleCheck } from '@element-plus/icons-vue'
-import { listProductsApi, listCategoriesApi } from '@/services/api.js'
-import { getMessages } from '@/data/messages.js'
+import { User, Goods, Document, Money, Bell, Clock, Warning, ChatDotRound, InfoFilled, Box, Calendar, CircleCheck } from '@element-plus/icons-vue'
+import { listProductsApi, listCategoriesApi, listUsersApi, getUnreadCountApi, getConversationsApi } from '@/services/api.js'
 
 export default {
   name: 'DashboardHome',
-  components: { User, Goods, Document, Money, Bell, Clock, Warning, ChatDotRound, InfoFilled, Box, Top, Bottom, Minus, Calendar, CircleCheck },
+  components: { User, Goods, Document, Money, Bell, Clock, Warning, ChatDotRound, InfoFilled, Box, Calendar, CircleCheck },
   props: {
     currentUser: { type: String, default: '' },
-    users: { type: Array, default: () => [] },
     orders: { type: Array, default: () => [] }
   },
   emits: ['navigate'],
   setup(props) {
     const products = ref([])
     const categories = ref([])
+    const userCount = ref(0)
+    const unreadCount = ref(0)
+    const unreadMessages = ref([])
 
     const loadProducts = async () => {
       try {
@@ -257,9 +216,46 @@ export default {
       }
     }
 
+    const loadUserCount = async () => {
+      try {
+        const res = await listUsersApi({ page: 1, size: 1 })
+        userCount.value = res.data.total || 0
+      } catch (e) {
+        console.error('加载用户数量失败', e)
+      }
+    }
+
+    const loadUnreadMessages = async () => {
+      try {
+        const countRes = await getUnreadCountApi()
+        unreadCount.value = countRes.data || 0
+        const convRes = await getConversationsApi()
+        const convs = convRes.data || []
+        // 获取有未读消息的会话，展示来自用户的咨询消息
+        const unreadConvs = convs.filter(c => c.unreadCount > 0)
+        unreadMessages.value = unreadConvs.map(c => {
+          // 后端返回的id就是conversationId，格式为 conv_用户名
+          const displayName = c.id
+            ? c.id.replace(/^conv_/, '')
+            : (c.fromName || '未知用户')
+          return {
+            id: c.id,
+            fromName: displayName,
+            content: c.lastMessage,
+            time: c.lastTime,
+            isRead: false
+          }
+        })
+      } catch (e) {
+        console.error('加载未读消息失败', e)
+      }
+    }
+
     onMounted(() => {
       loadProducts()
       loadCategories()
+      loadUserCount()
+      loadUnreadMessages()
     })
 
     const getCategoryName = (categoryId) => {
@@ -268,22 +264,17 @@ export default {
     }
 
     const totalRevenue = computed(() => {
-      return props.orders.reduce((sum, o) => sum + (o.amount || 0), 0).toFixed(2)
+      return props.orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0).toFixed(2)
     })
 
     const pendingOrders = computed(() => {
-      return props.orders.filter(o => o.status === '待发货')
+      return props.orders.filter(o => o.status === 'PENDING')
     })
 
     const currentDate = computed(() => {
       const now = new Date()
       const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
       return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekDays[now.getDay()]}`
-    })
-
-    const unreadMessages = computed(() => {
-      const messages = getMessages()
-      return messages.filter(m => !m.isRead && m.from !== 'admin')
     })
 
     const formatTime = (timeStr) => {
@@ -308,7 +299,7 @@ export default {
       return `${year}-${month}-${day}`
     }
 
-    return { products, getCategoryName, totalRevenue, pendingOrders, unreadMessages, formatTime, currentDate }
+    return { products, userCount, getCategoryName, totalRevenue, pendingOrders, unreadMessages, formatTime, currentDate }
   }
 }
 </script>
@@ -440,35 +431,6 @@ export default {
   color: #909399;
   margin-top: 4px;
   text-align: left;
-}
-
-.stat-footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f2f5;
-}
-
-.stat-trend {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.stat-trend.up {
-  color: #67c23a;
-}
-
-.stat-trend.down {
-  color: #f56c6c;
-}
-
-.stat-compare {
-  font-size: 12px;
-  color: #c0c4cc;
 }
 
 .info-sections {

@@ -122,7 +122,7 @@
           v-model:page-size="pageSize"
           :page-sizes="[5, 10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="filteredUsers.length"
+          :total="total"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
         />
@@ -169,18 +169,18 @@
 </template>
 
 <script>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { Search, Plus, User, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getUsers, saveUsers, addUser, generateUserId } from '@/data/users.js'
+import { listUsersApi, addUserApi, updateUserApi, updateUserStatusApi, deleteUserApi } from '@/services/api.js'
 
 export default {
   name: 'DashboardManageUser',
   components: { Search, Plus, User, UserFilled },
   props: {
-    users: { type: Array, default: () => [] },
     currentUser: { type: String, default: '' }
   },
+  emits: ['users-updated'],
   setup(props, { emit }) {
     const searchKeyword = ref('')
     const roleFilter = ref('')
@@ -196,10 +196,12 @@ export default {
       role: '',
       status: ''
     })
-    const filteredUsers = ref([...props.users])
+    const users = ref([])
+    const filteredUsers = ref([])
     
     const currentPage = ref(1)
     const pageSize = ref(5)
+    const total = ref(0)
     
     const paginatedUsers = computed(() => {
       const start = (currentPage.value - 1) * pageSize.value
@@ -208,12 +210,26 @@ export default {
     })
 
     const totalUsers = computed(() => {
-      return props.users.filter(u => u.role === '用户').length
+      return users.value.filter(u => u.role === 'USER').length
     })
 
     const totalAdmins = computed(() => {
-      return props.users.filter(u => u.role === '管理员').length
+      return users.value.filter(u => u.role === 'ADMIN').length
     })
+
+    const loadUsers = async () => {
+      try {
+        const res = await listUsersApi({ page: 1, size: 999 })
+        users.value = (res.data.records || []).map(u => ({
+          ...u,
+          role: u.role === 'ADMIN' ? '管理员' : '用户',
+          status: u.status === 'NORMAL' ? '正常' : '禁用'
+        }))
+        filterUsers()
+      } catch (e) {
+        console.error('加载用户列表失败', e)
+      }
+    }
 
     const filterByRole = (role) => {
       roleFilter.value = role
@@ -221,7 +237,7 @@ export default {
     }
 
     const filterUsers = () => {
-      filteredUsers.value = props.users.filter(user => {
+      filteredUsers.value = users.value.filter(user => {
         const matchSearch = searchKeyword.value === '' ||
           user.id.toString().toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
           user.username.toLowerCase().includes(searchKeyword.value.toLowerCase())
@@ -229,6 +245,7 @@ export default {
           user.role === roleFilter.value
         return matchSearch && matchRole
       })
+      total.value = filteredUsers.value.length
       tableKey.value++
     }
 
@@ -261,7 +278,7 @@ export default {
       dialogVisible.value = true
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
       if (!userForm.value.username || !userForm.value.phone) {
         ElMessage.warning('请填写完整信息')
         return
@@ -272,47 +289,39 @@ export default {
         return
       }
 
-      const users = getUsers()
+      const roleMap = { '管理员': 'ADMIN', '用户': 'USER' }
+      const statusMap = { '正常': 'NORMAL', '禁用': 'DISABLED' }
 
       if (isEditMode.value) {
-        const index = users.findIndex(u => u.id === userForm.value.id)
-        if (index !== -1) {
-          const originalUser = users[index]
-          users[index] = {
-            ...userForm.value,
-            role: originalUser.role,
-            password: originalUser.password
-          }
-          saveUsers(users)
-          
-          const propIndex = props.users.findIndex(u => u.id === userForm.value.id)
-          if (propIndex !== -1) {
-            props.users[propIndex] = { ...users[index] }
-          }
-          
+        try {
+          await updateUserApi(userForm.value.id, {
+            phone: userForm.value.phone,
+            email: userForm.value.email
+          })
+          await loadUsers()
           ElMessage.success('修改成功')
+        } catch (e) {
+          ElMessage.error(e.response?.data?.msg || '修改失败')
         }
       } else {
-        const existingUser = users.find(u => u.username === userForm.value.username)
-        if (existingUser) {
-          ElMessage.warning('用户名已存在')
-          return
+        try {
+          await addUserApi({
+            id: userForm.value.id,
+            username: userForm.value.username,
+            password: userForm.value.password,
+            phone: userForm.value.phone,
+            email: userForm.value.email || '',
+            role: roleMap[userForm.value.role] || 'USER',
+            status: statusMap[userForm.value.status] || 'NORMAL'
+          })
+          await loadUsers()
+          ElMessage.success('添加成功')
+        } catch (e) {
+          ElMessage.error(e.response?.data?.msg || '添加失败')
         }
-        
-        const newId = generateUserId(userForm.value.role)
-        const newUser = { 
-          ...userForm.value, 
-          id: newId
-        }
-        users.push(newUser)
-        saveUsers(users)
-        
-        props.users.push({ ...newUser })
-        ElMessage.success('添加成功')
       }
 
       dialogVisible.value = false
-      filterUsers()
     }
 
     const handleDelete = (user) => {
@@ -320,34 +329,27 @@ export default {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      }).then(() => {
-        const users = getUsers()
-        const filteredUsers = users.filter(u => u.id !== user.id)
-        if (filteredUsers.length < users.length) {
-          saveUsers(filteredUsers)
-          
-          const index = props.users.findIndex(u => u.id === user.id)
-          if (index !== -1) {
-            props.users.splice(index, 1)
-          }
-          
+      }).then(async () => {
+        try {
+          await deleteUserApi(user.id)
+          await loadUsers()
           ElMessage.success('删除成功')
-          filterUsers()
+        } catch (e) {
+          ElMessage.error(e.response?.data?.msg || '删除失败')
         }
       }).catch(() => {})
     }
 
-    const handleStatusChange = (user) => {
-      user.status = user.status === '正常' ? '禁用' : '正常'
-      
-      const users = getUsers()
-      const index = users.findIndex(u => u.id === user.id)
-      if (index !== -1) {
-        users[index].status = user.status
-        saveUsers(users)
+    const handleStatusChange = async (user) => {
+      const newStatus = user.status === '正常' ? '禁用' : '正常'
+      const statusMap = { '正常': 'NORMAL', '禁用': 'DISABLED' }
+      try {
+        await updateUserStatusApi(user.id, statusMap[newStatus])
+        await loadUsers()
+        ElMessage.success(`状态已更新为${newStatus}`)
+      } catch (e) {
+        ElMessage.error(e.response?.data?.msg || '状态更新失败')
       }
-      
-      ElMessage.success(`状态已更新为${user.status}`)
     }
 
     const handleSizeChange = () => {
@@ -358,7 +360,7 @@ export default {
     }
 
     const canEditStatus = (user) => {
-      const currentUserInfo = props.users.find(u => u.username === props.currentUser)
+      const currentUserInfo = users.value.find(u => u.username === props.currentUser)
       if (!currentUserInfo) return false
       if (currentUserInfo.role !== '管理员') return false
       if (user.role !== '管理员') return true
@@ -366,14 +368,18 @@ export default {
     }
 
     const canDeleteUser = (user) => {
-      const currentUserInfo = props.users.find(u => u.username === props.currentUser)
+      const currentUserInfo = users.value.find(u => u.username === props.currentUser)
       if (!currentUserInfo) return false
       if (currentUserInfo.role !== '管理员') return false
       if (user.role === '管理员' && user.username !== props.currentUser) return false
       return true
     }
 
-    watch(searchKeyword, () => { filterUsers() }, { immediate: true })
+    onMounted(() => {
+      loadUsers()
+    })
+
+    watch(searchKeyword, () => { filterUsers() }, { immediate: false })
 
     return {
       searchKeyword,
@@ -386,6 +392,7 @@ export default {
       paginatedUsers,
       currentPage,
       pageSize,
+      total,
       totalUsers,
       totalAdmins,
       handleSearchClear,

@@ -407,6 +407,8 @@
 import { ref, computed, shallowRef, triggerRef, onMounted } from 'vue'
 import { Goods, Search, Grid, List, CircleCheckFilled, UploadFilled, DeleteFilled, Coffee, Sugar, Apple, MilkTea, Food, Plus, Discount, Upload, PictureFilled } from '@element-plus/icons-vue'
 import { listProductsApi, listCategoriesApi, addProductApi, updateProductStatusApi, updateBatchProductStatusApi, updateProductDiscountApi, uploadProductImage } from '@/services/api.js'
+import { getImageUrlByPath } from '@/utils/imageHelper.js'
+import { saveProducts, saveCategories } from '@/data/products.js'
 import { ElMessage } from 'element-plus'
 
 export default {
@@ -482,7 +484,7 @@ export default {
     const mapProduct = (p) => ({
       ...p,
       category: p.categoryId,
-      image: p.imageUrl,
+      image: getImageUrlByPath(p.imageUrl),
       tags: p.tags ? p.tags.split(',').filter(t => t) : [],
       status: p.status ? p.status.toLowerCase() : 'onshelf'
     })
@@ -507,9 +509,11 @@ export default {
           size: pageSize.value
         })
         const data = res.data
-        products.value = (data.records || []).map(mapProduct)
+        const mappedProducts = (data.records || []).map(mapProduct)
+        products.value = mappedProducts
         total.value = data.total || 0
         triggerRef(products)
+        saveProducts(mappedProducts)
       } catch (error) {
         ElMessage.error('加载商品列表失败')
       }
@@ -519,6 +523,7 @@ export default {
       try {
         const res = await listCategoriesApi()
         categories.value = res.data || []
+        saveCategories(res.data || [])
       } catch (error) {
         console.error('加载分类失败', error)
       }
