@@ -129,4 +129,15 @@
                #{price}, #{discount}, #{quantity}, #{unit}, #{subtotal})
     </insert>
 
+    <!-- 批量插入明细：单条 INSERT VALUES (...),(...)，减少事务内往返与行锁持有时长 -->
+    <insert id="insertItems" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO order_item(order_id, product_id, product_name,
+                               price, discount, quantity, unit, subtotal)
+        VALUES
+        <foreach collection="items" item="item" separator=",">
+            (#{item.orderId}, #{item.productId}, #{item.productName},
+             #{item.price}, #{item.discount}, #{item.quantity}, #{item.unit}, #{item.subtotal})
+        </foreach>
+    </insert>
+
 </mapper>

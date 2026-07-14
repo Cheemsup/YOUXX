@@ -127,6 +127,16 @@
         WHERE id = #{id}
     </update>
 
+    <!-- 批量更新状态：单条 UPDATE，减少循环往返；配合 @Transactional 保证全成全败 -->
+    <update id="updateBatchStatus">
+        UPDATE product
+        SET status = #{status}, update_time = NOW()
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
     <update id="updateDiscount">
         UPDATE product
         SET discount = #{discount}, update_time = NOW()

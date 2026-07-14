@@ -127,7 +127,9 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserAddress addAddress(UserAddress address) {
+        // 默认地址分支涉及两步写（清空旧默认 + 插入新地址）：加事务防止清空后插入失败导致用户无默认地址
         if (address.getIsDefault() != null && address.getIsDefault()) {
             addressMapper.clearDefaultByUserId(address.getUserId());
         }

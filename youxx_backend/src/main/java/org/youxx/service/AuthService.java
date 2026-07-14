@@ -11,4 +11,11 @@ public interface AuthService {
     User register(String username, String password, String phone);
 
     User getInfo(String userId);
+
+    /**
+     * 登出：将当前令牌加入黑名单。
+     *
+     * @param token JWT 令牌（可为 "Bearer xxx" 形式）
+     */
+    void logout(String token);
 }

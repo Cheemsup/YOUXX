@@ -35,6 +35,11 @@ public interface ProductMapper {
 
     int updateStatus(@Param("id") String id, @Param("status") String status);
 
+    /**
+     * 批量更新商品状态：单条 UPDATE，减少循环往返，配合事务保证全成全败
+     */
+    int updateBatchStatus(@Param("ids") List<String> ids, @Param("status") String status);
+
     int updateDiscount(@Param("id") String id, @Param("discount") BigDecimal discount);
 
     int deductStock(@Param("id") String id, @Param("quantity") int quantity);

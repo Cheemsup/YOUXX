@@ -2,6 +2,7 @@ package org.youxx.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.youxx.common.result.PageResult;
@@ -9,10 +10,11 @@ import org.youxx.entity.Order;
 import org.youxx.entity.OrderItem;
 import org.youxx.entity.Product;
 import org.youxx.mapper.OrderMapper;
-import org.youxx.mapper.ProductMapper;
 import org.youxx.service.OrderService;
+import org.youxx.service.ProductService;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -24,7 +26,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderMapper orderMapper;
-    private final ProductMapper productMapper;
+    private final ProductService productService;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     public PageResult<Order> listOrders(String keyword, String status, LocalDateTime beginTime, LocalDateTime endTime, int page, int size) {
@@ -63,12 +66,30 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public Order createOrder(Order order, List<OrderItem> items) {
-        // 校验库存并扣减
+        // 事务边界：扣库存 + 建单 + 批量插明细 三组写必须原子（任一失败全回滚）。
+        // 注意：
+        //   1. 循环/分支内抛出的异常（含库存不足）必须向上传播，不得 try-catch 吞掉，否则破坏回滚。
+        //   2. 库存扣减依赖 deductStock 的 `stock>=?` 条件更新（乐观锁）防超卖，辅以抛异常+回滚兜底，
+        //      并发下可能出现"校验通过却下单失败"，属可接受语义。
+        //   3. 事务内不做远程调用/文件IO，行锁持有时间随明细数线性增长，故明细批量插入。
+
+        // 生成订单号（若前端未提供）
+        if (order.getId() == null || order.getId().isBlank()) {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+            String random = String.format("%04d", ThreadLocalRandom.current().nextInt(10000));
+            order.setId("ORD" + timestamp + random);
+        }
+
+        // 幂等锁：防止同一订单ID重复提交造成重复扣库存
+        Boolean acquired = stringRedisTemplate.opsForValue()
+                .setIfAbsent("youxx:order:idem:" + order.getId(), "1", Duration.ofMinutes(10));
+        if (Boolean.FALSE.equals(acquired)) {
+            throw new IllegalStateException("订单已提交，请勿重复下单");
+        }
+
+        // 预校验与价格快照填充（走 ProductService 代理命中缓存，事务外读，不持锁）
         for (OrderItem item : items) {
-            Product product = productMapper.selectById(item.getProductId());
-            if (product == null) {
-                throw new IllegalArgumentException("商品不存在: " + item.getProductId());
-            }
+            Product product = productService.getProduct(item.getProductId());
             if (!"ONSHELF".equals(product.getStatus())) {
                 throw new IllegalArgumentException("商品已下架: " + product.getName());
             }
@@ -84,12 +105,6 @@ public class OrderServiceImpl implements OrderService {
                     .multiply(product.getDiscount() != null ? product.getDiscount() : BigDecimal.ONE)
                     .multiply(BigDecimal.valueOf(item.getQuantity()));
             item.setSubtotal(itemSubtotal);
-
-            // 库存扣减
-            int affected = productMapper.deductStock(item.getProductId(), item.getQuantity());
-            if (affected == 0) {
-                throw new IllegalArgumentException("库存不足: " + product.getName());
-            }
         }
 
         // 计算订单总金额和总数量
@@ -113,19 +128,18 @@ public class OrderServiceImpl implements OrderService {
             order.setUpdateTime(LocalDateTime.now());
         }
 
-        // 生成订单号
-        if (order.getId() == null || order.getId().isBlank()) {
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-            String random = String.format("%04d", ThreadLocalRandom.current().nextInt(10000));
-            order.setId("ORD" + timestamp + random);
+        // === 事务内三组写 ===
+        // 写①：扣库存（条件更新防超卖，通过 ProductService 走代理触发详情缓存失效）
+        for (OrderItem item : items) {
+            productService.deductStock(item.getProductId(), item.getQuantity());
         }
-
+        // 写②：建单
         orderMapper.insert(order);
-
+        // 写③：批量插明细（关联订单号后一次性插入，减少事务内往返）
         for (OrderItem item : items) {
             item.setOrderId(order.getId());
-            orderMapper.insertItem(item);
         }
+        orderMapper.insertItems(items);
 
         log.info("订单已创建: id={}, userId={}, amount={}, items={}", order.getId(), order.getUserId(), totalAmount, totalCount);
         return order;

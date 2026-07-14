@@ -26,6 +26,12 @@ public class AuthController {
         return Result.success(result);
     }
 
+    @PostMapping("/logout")
+    public Result<Void> logout(@RequestHeader(value = "token", required = false) String token) {
+        authService.logout(token);
+        return Result.success();
+    }
+
     @PostMapping("/register")
     public Result<User> register(@RequestBody Map<String, String> body) {
         String username = body.get("username");

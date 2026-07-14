@@ -8,6 +8,7 @@ import org.youxx.common.config.JwtProperties;
 import org.youxx.common.security.JwtUtil;
 import org.youxx.common.userInfoMaintainer.BaseContext;
 import org.youxx.common.userInfoMaintainer.UserInfo;
+import org.youxx.service.TokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
@@ -19,6 +20,9 @@ public class JwtTokenUserInterceptor implements HandlerInterceptor {
 
     @Autowired
     private JwtProperties jwtProperties;
+
+    @Autowired
+    private TokenService tokenService;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -39,6 +43,13 @@ public class JwtTokenUserInterceptor implements HandlerInterceptor {
 
         try {
             Claims claims = JwtUtil.parseJWT(jwtProperties.getUserSecretKey(), token);
+
+            // 校验令牌是否已被吊销（登出 / 强制下线）
+            if (tokenService.isBlacklisted(token)) {
+                response.setStatus(401);
+                log.warn("令牌已被吊销: userId={}", claims.get("userId"));
+                return false;
+            }
 
             String userId = claims.get("userId") != null ? claims.get("userId").toString() : null;
             String username = claims.get("username") != null ? claims.get("username").toString() : null;

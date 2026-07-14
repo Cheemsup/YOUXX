@@ -38,6 +38,12 @@ public class GlobalExceptionHandler {
         return Result.error(ex.getMessage());
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public Result<Void> handleIllegalState(IllegalStateException ex) {
+        log.warn("非法状态异常: {}", ex.getMessage());
+        return Result.error(ex.getMessage());
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public Result<Void> handleRuntimeException(RuntimeException ex) {
         log.error("运行时异常: {}", ex.getMessage(), ex);

@@ -9,6 +9,7 @@ import org.youxx.common.security.PasswordEncoder;
 import org.youxx.entity.User;
 import org.youxx.mapper.UserMapper;
 import org.youxx.service.AuthService;
+import org.youxx.service.TokenService;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -21,6 +22,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserMapper userMapper;
     private final JwtProperties jwtProperties;
+    private final TokenService tokenService;
 
     @Override
     public Map<String, Object> login(String username, String password) {
@@ -101,6 +103,18 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("用户不存在");
         }
         return user;
+    }
+
+    @Override
+    public void logout(String token) {
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+        if (token == null || token.isBlank()) {
+            return;
+        }
+        tokenService.blacklist(token);
+        log.info("用户已登出");
     }
 
     private String generateUserId() {

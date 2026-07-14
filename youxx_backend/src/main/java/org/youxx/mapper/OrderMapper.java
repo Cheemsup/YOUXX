@@ -40,4 +40,9 @@ public interface OrderMapper {
     List<OrderItem> selectItemsByOrderId(@Param("orderId") String orderId);
 
     int insertItem(OrderItem item);
+
+    /**
+     * 批量插入订单明细：减少事务内循环往返，降低行锁持有时长
+     */
+    int insertItems(@Param("items") List<OrderItem> items);
 }

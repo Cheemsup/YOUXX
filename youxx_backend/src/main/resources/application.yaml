@@ -14,6 +14,7 @@ spring:
       port: ${spring.data.redis.port}
       database: ${spring.data.redis.database}
       timeout: ${spring.data.redis.timeout}
+      password: ${spring.data.redis.password}
 
 server:
   port: 8081
