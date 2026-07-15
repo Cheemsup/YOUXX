@@ -7,13 +7,16 @@ import org.springframework.web.bind.annotation.*;
 import org.youxx.common.result.PageResult;
 import org.youxx.common.result.Result;
 import org.youxx.common.userInfoMaintainer.BaseContext;
+import org.youxx.dto.OrderCreateRequest;
+import org.youxx.dto.OrderItemRequest;
+import org.youxx.dto.UpdateStatusRequest;
 import org.youxx.entity.Order;
 import org.youxx.entity.OrderItem;
 import org.youxx.service.OrderService;
+import org.youxx.vo.OrderDetailVO;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -43,29 +46,24 @@ public class OrderController {
     }
 
     @GetMapping("/{id}")
-    public Result<Map<String, Object>> detail(@PathVariable String id) {
+    public Result<OrderDetailVO> detail(@PathVariable String id) {
         Order order = orderService.getOrder(id);
         List<OrderItem> items = orderService.getOrderItems(id);
-        return Result.success(Map.of("order", order, "items", items));
+        return Result.success(new OrderDetailVO(order, items));
     }
 
     //TODO：具体实现逻辑迁移到impl
     @PostMapping
-    public Result<Order> create(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        Map<String, Object> orderMap = (Map<String, Object>) body.get("order");
-
+    public Result<Order> create(@RequestBody OrderCreateRequest request) {
         Order order = new Order();
-        order.setId((String) orderMap.get("id"));
+        order.setId(request.getId());
         order.setUserId(BaseContext.getCurrentId());
         order.setUsername(BaseContext.getCurrentUsername());
 
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> itemsList = (List<Map<String, Object>>) body.get("items");
-        List<OrderItem> items = itemsList.stream().map(itemMap -> {
+        List<OrderItem> items = request.getItems().stream().map(itemReq -> {
             OrderItem item = new OrderItem();
-            item.setProductId((String) itemMap.get("productId"));
-            item.setQuantity(((Number) itemMap.get("quantity")).intValue());
+            item.setProductId(itemReq.getProductId());
+            item.setQuantity(itemReq.getQuantity());
             return item;
         }).toList();
 
@@ -74,9 +72,8 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/status")
-    public Result<Void> updateStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
-        String status = body.get("status");
-        orderService.updateStatus(id, status);
+    public Result<Void> updateStatus(@PathVariable String id, @RequestBody UpdateStatusRequest request) {
+        orderService.updateStatus(id, request.getStatus());
         return Result.success();
     }
 

@@ -6,13 +6,15 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.youxx.common.result.PageResult;
 import org.youxx.common.result.Result;
+import org.youxx.dto.UpdateBatchStatusRequest;
+import org.youxx.dto.UpdateDiscountRequest;
+import org.youxx.dto.UpdateStatusRequest;
 import org.youxx.entity.Product;
 import org.youxx.entity.ProductCategory;
 import org.youxx.service.ProductService;
+import org.youxx.vo.UploadVO;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -53,36 +55,33 @@ public class ProductController {
 
     @PostMapping
     public Result<Product> add(@RequestBody Product product) {
+        // 管理员新增商品：字段较多，保留 entity 入参
         Product created = productService.addProduct(product);
         return Result.success(created);
     }
 
     @PutMapping("/{id}")
     public Result<Product> update(@PathVariable String id, @RequestBody Product product) {
+        // 管理员编辑商品：同上，保留 entity 入参
         Product updated = productService.updateProduct(id, product);
         return Result.success(updated);
     }
 
     @PutMapping("/{id}/status")
-    public Result<Void> updateStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
-        String status = body.get("status");
-        productService.updateStatus(id, status);
+    public Result<Void> updateStatus(@PathVariable String id, @RequestBody UpdateStatusRequest request) {
+        productService.updateStatus(id, request.getStatus());
         return Result.success();
     }
 
     @PutMapping("/batch/status")
-    public Result<Void> updateBatchStatus(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        List<String> ids = (List<String>) body.get("ids");
-        String status = (String) body.get("status");
-        productService.updateBatchStatus(ids, status);
+    public Result<Void> updateBatchStatus(@RequestBody UpdateBatchStatusRequest request) {
+        productService.updateBatchStatus(request.getIds(), request.getStatus());
         return Result.success();
     }
 
     @PutMapping("/{id}/discount")
-    public Result<Void> updateDiscount(@PathVariable String id, @RequestBody Map<String, BigDecimal> body) {
-        BigDecimal discount = body.get("discount");
-        productService.updateDiscount(id, discount);
+    public Result<Void> updateDiscount(@PathVariable String id, @RequestBody UpdateDiscountRequest request) {
+        productService.updateDiscount(id, request.getDiscount());
         return Result.success();
     }
 
@@ -93,8 +92,10 @@ public class ProductController {
     }
 
     @PostMapping("/upload")
-    public Result<Map<String, String>> upload(@RequestParam("file") MultipartFile file) {
+    public Result<UploadVO> upload(@RequestParam("file") MultipartFile file) {
         String url = productService.uploadImage(file);
-        return Result.success(Map.of("url", url));
+        UploadVO vo = new UploadVO();
+        vo.setUrl(url);
+        return Result.success(vo);
     }
 }

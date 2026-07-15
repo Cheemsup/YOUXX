@@ -25,7 +25,7 @@ youxx:
     ttl: 7200000
     token-name: token
   chatmodel:
-    model: ${CHATMODEL_MODEL:MiniMax-M3}
-    api-key: ${CHATMODEL_API_KEY:}
-    base-url: ${CHATMODEL_BASE_URL:https://jisu.aicodee.com/v1}
-    send-thinking: true
+    model: ${CHATMODEL_MODEL}
+    api-key: ${CHATMODEL_API_KEY}
+    base-url: ${CHATMODEL_BASE_URL}
+    send-thinking: false

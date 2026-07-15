@@ -111,27 +111,38 @@
 <script setup>
 import { ref, nextTick, watch } from 'vue'
 import { ChatDotRound, Close, Robot, User, Plus, Promotion, Delete } from '@element-plus/icons-vue'
-import { getAIStreamResponse, getAIResponse } from '@/services/aiService'
+import { getAgentResponse } from '@/services/aiService'
 import { ElMessage } from 'element-plus'
+import { parseLLMResponse } from '@/services/promptEngineer'
 import MiniCartoonCharacter from './MiniCartoonCharacter.vue'
 
-const emit = defineEmits(['addToCart', 'productClick'])
+const emit = defineEmits(['addToCart', 'productClick', 'cartItemsAdded'])
 
 const isOpen = ref(false)
 const messages = ref([])
 const inputMessage = ref('')
 const isTyping = ref(false)
 const messagesContainer = ref(null)
+// 会话 ID：前端生成，随请求传给后端，同一对话复用持久化 ChatMemory（含工具调用对）
+const sessionId = ref('')
 
 const initMessage = {
   role: 'assistant',
   content: '您好！我是智能导购助手，有什么可以帮您的吗？您可以问我商品信息、价格查询或者让我为您推荐商品哦~'
 }
 
+// 确保 sessionId 已生成：打开面板/清空/程序化调用时触发
+const ensureSessionId = () => {
+  if (!sessionId.value) {
+    sessionId.value = (crypto.randomUUID && crypto.randomUUID()) || Date.now().toString(36) + Math.random().toString(36).slice(2)
+  }
+}
+
 const toggleChat = () => {
   isOpen.value = !isOpen.value
   if (isOpen.value && messages.value.length === 0) {
     messages.value = [initMessage]
+    ensureSessionId()
   }
 }
 
@@ -145,7 +156,7 @@ const scrollToBottom = () => {
 
 const sendMessage = async () => {
   if (!inputMessage.value.trim() || isTyping.value) return
-  
+
   const userMsg = inputMessage.value.trim()
   messages.value.push({
     role: 'user',
@@ -153,78 +164,54 @@ const sendMessage = async () => {
   })
   inputMessage.value = ''
   scrollToBottom()
-  
+
   isTyping.value = true
-  
-  try {
-    const conversationHistory = messages.value.slice(0, -1).map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }))
 
-    // 先添加一条空的助手消息，用于流式填充
-    const assistantMsg = {
-      role: 'assistant',
-      content: ''
-    }
-    messages.value.push(assistantMsg)
-    scrollToBottom()
+  // 统一路径：所有消息都走 agent 端点（非流式，带 tool）。
+  // 由后端 system prompt 约束是否调用下单 tool；闲聊时返回 type=text。
+  await sendAgentMessage(userMsg)
 
-    // 使用SSE流式接口
-    const aiResponse = await getAIStreamResponse(userMsg, conversationHistory, (token, fullText) => {
-      assistantMsg.content = fullText
-      scrollToBottom()
-    })
-
-    // 流式完成后，用解析后的结果更新消息
-    assistantMsg.content = aiResponse.content
-    if (aiResponse.type === 'product_list') {
-      assistantMsg.productList = aiResponse.products
-    } else if (aiResponse.type === 'product_detail') {
-      assistantMsg.product = aiResponse.product
-    }
-  } catch (error) {
-    // 如果流式失败，尝试普通接口
-    try {
-      const conversationHistory = messages.value.slice(0, -1).map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }))
-      // 移除空的助手消息
-      if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant' && !messages.value[messages.value.length - 1].content) {
-        messages.value.pop()
-      }
-      const aiResponse = await getAIResponse(userMsg, conversationHistory)
-      processAIResponse(aiResponse)
-    } catch (fallbackError) {
-      // 移除空的助手消息
-      if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant' && !messages.value[messages.value.length - 1].content) {
-        messages.value.pop()
-      }
-      messages.value.push({
-        role: 'assistant',
-        content: '抱歉，我现在有点忙，稍后再试吧~'
-      })
-    }
-  } finally {
-    isTyping.value = false
-    scrollToBottom()
-  }
+  isTyping.value = false
+  scrollToBottom()
 }
 
-const processAIResponse = (aiResponse) => {
-  const msg = {
-    role: 'assistant',
-    content: aiResponse.content
+// Agent 链路：非流式，可能返回 order 或 text
+const sendAgentMessage = async (userMsg) => {
+  // 历史不再前端回传：后端按 sessionId 持久化 ChatMemory，含完整工具调用对
+  ensureSessionId()
+
+  const assistantMsg = { role: 'assistant', content: '' }
+  messages.value.push(assistantMsg)
+  scrollToBottom()
+
+  try {
+    // 用户身份不再传入请求体，后端 JWT 拦截器从 token 解析
+    const aiResponse = await getAgentResponse(userMsg, sessionId.value)
+    assistantMsg.content = aiResponse.content
+    // Agent 只加购不下单：若返回带 cartItems（Agent 调用了 addToCart），
+    // 抛给父组件写入购物车；真正的结算由用户在购物车界面手动完成
+    if (aiResponse.cartItems && aiResponse.cartItems.length > 0) {
+      emit('cartItemsAdded', aiResponse.cartItems)
+      ElMessage.success('已加入购物车')
+    } else {
+      // 纯文本回复也走 parseLLMResponse，支持商品卡片渲染
+      const parsed = parseLLMResponse(aiResponse.content)
+      if (parsed.type === 'product_list') {
+        assistantMsg.productList = parsed.products
+      } else if (parsed.type === 'product_detail') {
+        assistantMsg.product = parsed.product
+      }
+    }
+  } catch (error) {
+    // 移除空的助手消息并提示失败
+    if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant' && !messages.value[messages.value.length - 1].content) {
+      messages.value.pop()
+    }
+    messages.value.push({
+      role: 'assistant',
+      content: '抱歉，我现在有点忙，稍后再试吧~'
+    })
   }
-  
-  if (aiResponse.type === 'product_list') {
-    msg.productList = aiResponse.products
-  } else if (aiResponse.type === 'product_detail') {
-    msg.product = aiResponse.product
-  }
-  
-  messages.value.push(msg)
 }
 
 const sendQuickQuestion = (question) => {
@@ -234,6 +221,9 @@ const sendQuickQuestion = (question) => {
 
 const clearChat = () => {
   messages.value = [initMessage]
+  // 清空即开新会话：重新生成 sessionId，旧 memory 由 Redis TTL 自然回收
+  sessionId.value = ''
+  ensureSessionId()
   ElMessage.success('聊天记录已清空')
 }
 
@@ -258,6 +248,7 @@ defineExpose({
     if (!isOpen.value) {
       isOpen.value = true
       messages.value = [initMessage]
+      ensureSessionId()
     }
     const msg = {
       role: 'assistant',

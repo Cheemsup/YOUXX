@@ -2,16 +2,21 @@ package org.youxx.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.youxx.common.result.PageResult;
 import org.youxx.common.result.Result;
 import org.youxx.common.userInfoMaintainer.BaseContext;
+import org.youxx.dto.UpdatePasswordRequest;
+import org.youxx.dto.UpdateStatusRequest;
+import org.youxx.dto.UserAddressRequest;
+import org.youxx.dto.UserUpdateRequest;
 import org.youxx.entity.User;
 import org.youxx.entity.UserAddress;
 import org.youxx.service.UserService;
+import org.youxx.vo.UserVO;
 
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -25,22 +30,23 @@ public class UserController {
     // 注意：这些路径必须在 /{id} 之前，避免被路径变量误匹配
 
     @GetMapping("/profile")
-    public Result<User> profile() {
+    public Result<UserVO> profile() {
         User user = userService.getProfile(BaseContext.getCurrentId());
-        return Result.success(user);
+        return Result.success(toVO(user));
     }
 
     @PutMapping("/profile")
-    public Result<User> updateProfile(@RequestBody User user) {
+    public Result<UserVO> updateProfile(@RequestBody UserUpdateRequest request) {
+        // 普通用户仅可改 phone/email/avatar；密码、角色、状态等不由此接口处理
+        User user = new User();
+        BeanUtils.copyProperties(request, user);
         User updated = userService.updateProfile(BaseContext.getCurrentId(), user);
-        return Result.success(updated);
+        return Result.success(toVO(updated));
     }
 
     @PutMapping("/password")
-    public Result<Void> updatePassword(@RequestBody Map<String, String> body) {
-        String oldPassword = body.get("oldPassword");
-        String newPassword = body.get("newPassword");
-        userService.updatePassword(BaseContext.getCurrentId(), oldPassword, newPassword);
+    public Result<Void> updatePassword(@RequestBody UpdatePasswordRequest request) {
+        userService.updatePassword(BaseContext.getCurrentId(), request.getOldPassword(), request.getNewPassword());
         return Result.success();
     }
 
@@ -53,14 +59,18 @@ public class UserController {
     }
 
     @PostMapping("/address")
-    public Result<UserAddress> addAddress(@RequestBody UserAddress address) {
+    public Result<UserAddress> addAddress(@RequestBody UserAddressRequest request) {
+        UserAddress address = new UserAddress();
+        BeanUtils.copyProperties(request, address);
         address.setUserId(BaseContext.getCurrentId());
         UserAddress created = userService.addAddress(address);
         return Result.success(created);
     }
 
     @PutMapping("/address/{id}")
-    public Result<UserAddress> updateAddress(@PathVariable Long id, @RequestBody UserAddress address) {
+    public Result<UserAddress> updateAddress(@PathVariable Long id, @RequestBody UserAddressRequest request) {
+        UserAddress address = new UserAddress();
+        BeanUtils.copyProperties(request, address);
         UserAddress updated = userService.updateAddress(id, address);
         return Result.success(updated);
     }
@@ -80,37 +90,39 @@ public class UserController {
     // ==================== 用户管理（管理员） ====================
 
     @GetMapping("/list")
-    public Result<PageResult<User>> list(
+    public Result<PageResult<UserVO>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String role,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         PageResult<User> result = userService.listUsers(keyword, role, page, size);
-        return Result.success(result);
+        List<UserVO> voList = result.getRecords().stream().map(this::toVO).toList();
+        return Result.success(PageResult.of(voList, result.getTotal(), page, size));
     }
 
     @GetMapping("/{id}")
-    public Result<User> detail(@PathVariable String id) {
+    public Result<UserVO> detail(@PathVariable String id) {
         User user = userService.getUser(id);
-        return Result.success(user);
+        return Result.success(toVO(user));
     }
 
     @PostMapping
-    public Result<User> add(@RequestBody User user) {
+    public Result<UserVO> add(@RequestBody User user) {
+        // 管理员新增用户：需设置密码、角色、状态等，保留 entity 入参
         User created = userService.addUser(user);
-        return Result.success(created);
+        return Result.success(toVO(created));
     }
 
     @PutMapping("/{id}")
-    public Result<User> update(@PathVariable String id, @RequestBody User user) {
+    public Result<UserVO> update(@PathVariable String id, @RequestBody User user) {
+        // 管理员编辑用户：同上，保留 entity 入参
         User updated = userService.updateUser(id, user);
-        return Result.success(updated);
+        return Result.success(toVO(updated));
     }
 
     @PutMapping("/{id}/status")
-    public Result<Void> updateStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
-        String status = body.get("status");
-        userService.updateStatus(id, status);
+    public Result<Void> updateStatus(@PathVariable String id, @RequestBody UpdateStatusRequest request) {
+        userService.updateStatus(id, request.getStatus());
         return Result.success();
     }
 
@@ -118,5 +130,15 @@ public class UserController {
     public Result<Void> delete(@PathVariable String id) {
         userService.deleteUser(id);
         return Result.success();
+    }
+
+    /** User -> UserVO，屏蔽 password */
+    private UserVO toVO(User user) {
+        if (user == null) {
+            return null;
+        }
+        UserVO vo = new UserVO();
+        BeanUtils.copyProperties(user, vo);
+        return vo;
     }
 }

@@ -5,10 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.youxx.common.result.Result;
 import org.youxx.common.userInfoMaintainer.BaseContext;
-import org.youxx.entity.User;
+import org.youxx.dto.LoginRequest;
+import org.youxx.dto.RegisterRequest;
 import org.youxx.service.AuthService;
-
-import java.util.Map;
+import org.youxx.vo.LoginVO;
+import org.youxx.vo.UserVO;
 
 @Slf4j
 @RestController
@@ -19,10 +20,8 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public Result<Map<String, Object>> login(@RequestBody Map<String, String> body) {
-        String username = body.get("username");
-        String password = body.get("password");
-        Map<String, Object> result = authService.login(username, password);
+    public Result<LoginVO> login(@RequestBody LoginRequest request) {
+        LoginVO result = authService.login(request.getUsername(), request.getPassword());
         return Result.success(result);
     }
 
@@ -33,18 +32,15 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public Result<User> register(@RequestBody Map<String, String> body) {
-        String username = body.get("username");
-        String password = body.get("password");
-        String phone = body.get("phone");
-        User user = authService.register(username, password, phone);
+    public Result<UserVO> register(@RequestBody RegisterRequest request) {
+        UserVO user = authService.register(request.getUsername(), request.getPassword(), request.getPhone());
         return Result.success(user);
     }
 
     @GetMapping("/info")
-    public Result<User> info() {
+    public Result<UserVO> info() {
         String userId = BaseContext.getCurrentId();
-        User user = authService.getInfo(userId);
+        UserVO user = authService.getInfo(userId);
         return Result.success(user);
     }
 }

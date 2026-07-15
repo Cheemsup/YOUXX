@@ -1,16 +1,16 @@
 package org.youxx.service;
 
 import org.youxx.entity.User;
-
-import java.util.Map;
+import org.youxx.vo.LoginVO;
+import org.youxx.vo.UserVO;
 
 public interface AuthService {
 
-    Map<String, Object> login(String username, String password);
+    LoginVO login(String username, String password);
 
-    User register(String username, String password, String phone);
+    UserVO register(String username, String password, String phone);
 
-    User getInfo(String userId);
+    UserVO getInfo(String userId);
 
     /**
      * 登出：将当前令牌加入黑名单。

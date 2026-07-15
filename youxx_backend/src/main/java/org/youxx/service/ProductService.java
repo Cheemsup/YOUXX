@@ -18,6 +18,12 @@ public interface ProductService {
 
     List<Product> listHotProducts();
 
+    /**
+     * 查询全部在售商品（status=ONSHELF），用于 Agent system prompt 注入商品知识库。
+     * 走分页 selectPage 取较大 size 一次拉取，命中既有查询逻辑。
+     */
+    List<Product> listOnShelfProducts();
+
     Product addProduct(Product product);
 
     Product updateProduct(String id, Product product);

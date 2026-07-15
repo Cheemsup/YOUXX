@@ -2,74 +2,25 @@ import { LLM_CONFIG, isLLMEnabled } from '@/config/llmConfig.js'
 import { parseLLMResponse } from '@/services/promptEngineer.js'
 
 /**
- * 通过后端SSE流式接口调用大模型
- * @param {string} userMessage - 用户消息
- * @param {Array} conversationHistory - 对话历史 [{role, content}]
- * @param {Function} onToken - 每收到一个token的回调
- * @returns {Promise<{type, content}>} - 最终响应
+ * 调用 Agent 接口（非流式，带 tool）。
+ * 用户身份不再放进请求体，改由后端 JWT 拦截器从 token 解析写入 BaseContext，
+ * 下单工具据此自行获取，避免用户信息发往大模型。
+ * 会话记忆由后端按 sessionId 持久化在 Redis（含完整工具调用对），前端不再回传历史。
+ * @param {string} userMessage 当前用户消息
+ * @param {string} sessionId 会话 ID（前端生成），同一对话复用
+ * @returns {Promise<{type:'text', content, cartItems?}>} cartItems 为加购清单（productId+quantity），仅当 Agent 调用 addToCart 时非空
  */
-export async function getAIStreamResponse(userMessage, conversationHistory = [], onToken = null) {
-  const response = await fetch(LLM_CONFIG.streamUrl, {
+export async function getAgentResponse(userMessage, sessionId) {
+  const token = localStorage.getItem('token')
+  const response = await fetch(LLM_CONFIG.agentChatUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { token } : {})
+    },
     body: JSON.stringify({
       message: userMessage,
-      history: conversationHistory
-    })
-  })
-
-  if (!response.ok) {
-    throw new Error(`请求失败: ${response.status}`)
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let fullText = ''
-  let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    buffer += decoder.decode(value, { stream: true })
-
-    // 解析SSE事件
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-
-    let currentEvent = ''
-    for (const line of lines) {
-      if (line.startsWith('event:')) {
-        currentEvent = line.slice(6).trim()
-      } else if (line.startsWith('data:')) {
-        const data = line.slice(5).trim()
-        if (currentEvent === 'token') {
-          fullText += data
-          if (onToken) {
-            onToken(data, fullText)
-          }
-        } else if (currentEvent === 'done') {
-          // 流结束
-        } else if (currentEvent === 'error') {
-          throw new Error(data)
-        }
-      }
-    }
-  }
-
-  return parseLLMResponse(fullText)
-}
-
-/**
- * 通过后端普通接口调用大模型（非流式，备用）
- */
-export async function getAIResponse(userMessage, conversationHistory = []) {
-  const response = await fetch(LLM_CONFIG.chatUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: userMessage,
-      history: conversationHistory
+      sessionId
     })
   })
 
@@ -79,7 +30,13 @@ export async function getAIResponse(userMessage, conversationHistory = []) {
 
   const result = await response.json()
   if (result.code === 1) {
-    return parseLLMResponse(result.data)
+    const data = result.data || {}
+    // Agent 只加购不下单：cartItems 为后端从工具结果解析出的加购清单，前端据此写入购物车
+    return {
+      type: 'text',
+      content: data.content,
+      cartItems: Array.isArray(data.cartItems) ? data.cartItems : []
+    }
   } else {
     throw new Error(result.msg || 'AI助手暂时不可用')
   }

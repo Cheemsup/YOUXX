@@ -1,13 +1,13 @@
 package org.youxx.service;
 
 import org.youxx.entity.Message;
+import org.youxx.vo.ConversationVO;
 
 import java.util.List;
-import java.util.Map;
 
 public interface MessageService {
 
-    List<Map<String, Object>> getConversations(String currentRole);
+    List<ConversationVO> getConversations(String currentRole);
 
     List<Message> getConversationMessages(String conversationId);
 

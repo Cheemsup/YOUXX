@@ -6,12 +6,11 @@ import org.springframework.stereotype.Service;
 import org.youxx.entity.Message;
 import org.youxx.mapper.MessageMapper;
 import org.youxx.service.MessageService;
+import org.youxx.vo.ConversationVO;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Service
@@ -21,17 +20,17 @@ public class MessageServiceImpl implements MessageService {
     private final MessageMapper messageMapper;
 
     @Override
-    public List<Map<String, Object>> getConversations(String currentRole) {
+    public List<ConversationVO> getConversations(String currentRole) {
         List<Message> latestMessages = messageMapper.selectConversations();
-        List<Map<String, Object>> conversations = new ArrayList<>();
+        List<ConversationVO> conversations = new ArrayList<>();
 
         for (Message msg : latestMessages) {
-            Map<String, Object> conv = new HashMap<>();
-            conv.put("id", msg.getConversationId());
-            conv.put("from", msg.getSender());
-            conv.put("fromName", msg.getSenderName());
-            conv.put("lastMessage", msg.getContent());
-            conv.put("lastTime", msg.getCreateTime());
+            ConversationVO conv = new ConversationVO();
+            conv.setId(msg.getConversationId());
+            conv.setFrom(msg.getSender());
+            conv.setFromName(msg.getSenderName());
+            conv.setLastMessage(msg.getContent());
+            conv.setLastTime(msg.getCreateTime());
 
             // 计算该会话的未读数
             List<Message> convMessages = messageMapper.selectByConversationId(msg.getConversationId());
@@ -45,7 +44,7 @@ public class MessageServiceImpl implements MessageService {
                         .filter(m -> "ADMIN".equals(m.getSender()) && m.getIsRead() == 0)
                         .count();
             }
-            conv.put("unreadCount", (int) unreadCount);
+            conv.setUnreadCount((int) unreadCount);
 
             conversations.add(conv);
         }

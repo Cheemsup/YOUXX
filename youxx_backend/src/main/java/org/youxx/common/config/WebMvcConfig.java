@@ -26,8 +26,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/product/list",
                         "/api/product/hot",
                         "/api/product/category/list",
-                        "/api/product/**/detail",
-                        "/api/llm/**"
+                        "/api/product/**/detail"
                 );
         log.info("自定义拦截器注册完成");
     }

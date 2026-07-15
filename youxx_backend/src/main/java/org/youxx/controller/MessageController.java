@@ -5,11 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.youxx.common.result.Result;
 import org.youxx.common.userInfoMaintainer.BaseContext;
+import org.youxx.dto.SendMessageRequest;
 import org.youxx.entity.Message;
 import org.youxx.service.MessageService;
+import org.youxx.vo.ConversationVO;
 
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -20,9 +21,9 @@ public class MessageController {
     private final MessageService messageService;
 
     @GetMapping("/conversations")
-    public Result<List<Map<String, Object>>> getConversations() {
+    public Result<List<ConversationVO>> getConversations() {
         String role = BaseContext.getCurrentRole();
-        List<Map<String, Object>> conversations = messageService.getConversations(role);
+        List<ConversationVO> conversations = messageService.getConversations(role);
         return Result.success(conversations);
     }
 
@@ -40,9 +41,9 @@ public class MessageController {
     }
 
     @PostMapping("/send")
-    public Result<Message> sendMessage(@RequestBody Map<String, String> body) {
-        String conversationId = body.get("conversationId");
-        String content = body.get("content");
+    public Result<Message> sendMessage(@RequestBody SendMessageRequest request) {
+        String conversationId = request.getConversationId();
+        String content = request.getContent();
 
         String userId = BaseContext.getCurrentId();
         String username = BaseContext.getCurrentUsername();

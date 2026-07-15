@@ -62,6 +62,14 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public List<Product> listOnShelfProducts() {
+        // Agent 知识库注入用：一次性取在售商品。复用 selectPage 走 status=ONSHELF 查询，
+        // size 取较大值容纳全量；商品规模不大，无需分批。
+        PageResult<Product> page = listProducts(null, null, "ONSHELF", 1, 1000);
+        return page.getRecords();
+    }
+
+    @Override
     @Caching(evict = {
             @CacheEvict(value = "product:categories", allEntries = true),
             @CacheEvict(value = "product:hot", allEntries = true),

@@ -212,7 +212,7 @@
       </div>
     </el-drawer>
 
-    <AIChatAssistant ref="aiAssistantRef" @add-to-cart="addToCart" />
+    <AIChatAssistant ref="aiAssistantRef" @add-to-cart="addToCart" @cart-items-added="addCartItems" />
   </div>
 </template>
 
@@ -409,6 +409,39 @@ export default {
       saveCart()
     }
 
+    // AI Agent 批量加购：Agent 只负责把商品加入购物车，不代用户付款结算。
+    // 此处把后端解析出的加购清单（productId+quantity）合并写入 localStorage 购物车，
+    // 真正的结算（扣库存、建单）由用户在购物车界面手动点击结算触发。
+    // 商品名称/价格/库存等快照信息从已加载的 productsCache 补全，避免额外的商品详情请求。
+    const addCartItems = (items) => {
+      if (!items || items.length === 0) return
+
+      for (const ci of items) {
+        const product = productsCache.value.find(p => p.id === ci.productId)
+        if (!product) {
+          console.warn('加购失败：商品不存在', ci.productId)
+          continue
+        }
+        const existingItem = cartItems.value.find(c => c.id === ci.productId)
+        const qty = Number(ci.quantity) || 1
+        if (existingItem) {
+          existingItem.quantity += qty
+        } else {
+          cartItems.value.push({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            discount: product.discount,
+            unit: product.unit,
+            quantity: qty,
+            stock: product.stock,
+            image: product.imageUrl ? getImageUrlByPath(product.imageUrl) : ''
+          })
+        }
+      }
+      saveCart()
+    }
+
     const updateCartQuantity = () => {
       saveCart()
     }
@@ -527,6 +560,7 @@ export default {
       getStatusType,
       getDetailItemImage,
       addToCart,
+      addCartItems,
       updateCartQuantity,
       removeFromCart,
       handleCheckout,
