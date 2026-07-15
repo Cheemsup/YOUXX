@@ -166,6 +166,7 @@ const sendMessage = async () => {
   scrollToBottom()
 
   isTyping.value = true
+  scrollToBottom() // 让 typing-indicator 进入可视区域
 
   // 统一路径：所有消息都走 agent 端点（非流式，带 tool）。
   // 由后端 system prompt 约束是否调用下单 tool；闲聊时返回 type=text。
@@ -180,17 +181,18 @@ const sendAgentMessage = async (userMsg) => {
   // 历史不再前端回传：后端按 sessionId 持久化 ChatMemory，含完整工具调用对
   ensureSessionId()
 
-  const assistantMsg = { role: 'assistant', content: '' }
-  messages.value.push(assistantMsg)
-  scrollToBottom()
-
+  // 注意：此处不再预先 push 空的 assistant 消息。
+  // 等待回复期间由 isTyping 的 typing-indicator（单一头像 + 打字动画）兜底，
+  // 避免出现「空助手气泡 + 打字指示器」两个头像、空白聊天框的问题。
   try {
     // 用户身份不再传入请求体，后端 JWT 拦截器从 token 解析
     const aiResponse = await getAgentResponse(userMsg, sessionId.value)
-    assistantMsg.content = aiResponse.content
+
+    const assistantMsg = { role: 'assistant', content: aiResponse.content }
     // Agent 只加购不下单：若返回带 cartItems（Agent 调用了 addToCart），
     // 抛给父组件写入购物车；真正的结算由用户在购物车界面手动完成
     if (aiResponse.cartItems && aiResponse.cartItems.length > 0) {
+      messages.value.push(assistantMsg)
       emit('cartItemsAdded', aiResponse.cartItems)
       ElMessage.success('已加入购物车')
     } else {
@@ -201,12 +203,10 @@ const sendAgentMessage = async (userMsg) => {
       } else if (parsed.type === 'product_detail') {
         assistantMsg.product = parsed.product
       }
+      messages.value.push(assistantMsg)
     }
   } catch (error) {
-    // 移除空的助手消息并提示失败
-    if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant' && !messages.value[messages.value.length - 1].content) {
-      messages.value.pop()
-    }
+    // 失败时直接提示，无需清理（未 push 过空消息）
     messages.value.push({
       role: 'assistant',
       content: '抱歉，我现在有点忙，稍后再试吧~'

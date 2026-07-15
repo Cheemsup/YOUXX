@@ -6,6 +6,7 @@
           <div class="chat-header-info">
             <el-icon :size="24"><Shop /></el-icon>
             <span class="chat-header-name">联系商家</span>
+            <span class="chat-header-status">在线</span>
           </div>
         </div>
 
@@ -20,6 +21,7 @@
             class="chat-message"
             :class="{ 'message-self': msg.from === 'user' }"
           >
+            <!-- 头像始终紧贴气泡外侧：商家消息头像在左、用户消息头像在右 -->
             <div class="message-avatar" v-if="msg.from !== 'user'">
               <div class="avatar-placeholder small merchant-avatar">
                 <el-icon :size="20"><Shop /></el-icon>
@@ -153,35 +155,70 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #f5f7fa;
+  background: #f0f2f5;
 }
 
+/* ===== 顶部标题栏：渐变 + 在线状态 ===== */
 .chat-header {
-  padding: 16px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e6e6e6;
+  padding: 18px 24px;
+  background: linear-gradient(135deg, #36d1a8 0%, #42b983 100%);
+  border-bottom: none;
+  box-shadow: 0 2px 10px rgba(66, 185, 131, 0.25);
 }
 
 .chat-header-info {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #42b983;
+  color: #fff;
+}
+
+.chat-header :deep(.el-icon) {
+  color: #fff;
 }
 
 .chat-header-name {
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: #fff;
+  letter-spacing: 0.5px;
 }
 
+.chat-header-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.chat-header-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d4ffea;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+}
+
+/* ===== 消息列表区 ===== */
 .chat-messages {
   flex: 1;
-  padding: 20px 24px;
+  padding: 24px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(66, 185, 131, 0.35);
+  border-radius: 3px;
 }
 
 .chat-empty-hint {
@@ -199,33 +236,39 @@ export default {
   color: #909399;
 }
 
+/* ===== 单条消息：头像贴气泡外侧，尾巴指向头像 ===== */
 .chat-message {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
+  /* 商家消息：头像在左、气泡在右，整体左对齐 */
+  justify-content: flex-start;
 }
 
+/* 用户自己的消息：头像在右、气泡紧贴左侧，整体右对齐 */
 .chat-message.message-self {
-  flex-direction: row-reverse;
+  justify-content: flex-end;
 }
 
 .message-avatar {
   flex-shrink: 0;
+  padding-top: 2px;
 }
 
 .avatar-placeholder {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 .avatar-placeholder.small {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
 }
 
 .merchant-avatar {
@@ -237,31 +280,52 @@ export default {
 }
 
 .message-bubble {
-  max-width: 60%;
+  max-width: 62%;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: 16px;
   font-size: 14px;
-  line-height: 1.5;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  line-height: 1.55;
   word-break: break-word;
+  position: relative;
+  animation: bubbleIn 0.2s ease;
 }
 
-.bubble-self {
-  background: #42b983;
-  color: #fff;
-  border-top-right-radius: 4px;
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
+/* 商家气泡：白底，尾巴朝左指向左侧头像 */
 .bubble-merchant {
   background: #fff;
   color: #303133;
   border-top-left-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
+/* 用户气泡：主题绿，尾巴朝右指向右侧头像 */
+.bubble-self {
+  background: linear-gradient(135deg, #42b983 0%, #36d1a8 100%);
+  color: #fff;
+  border-top-right-radius: 4px;
+  box-shadow: 0 3px 10px rgba(66, 185, 131, 0.3);
+}
+
+/* ===== 输入区 ===== */
 .chat-input {
-  padding: 16px 24px;
+  padding: 16px 24px 20px;
   background: #fff;
-  border-top: 1px solid #e6e6e6;
+  border-top: 1px solid #ebeef5;
+}
+
+.chat-input :deep(.el-textarea__inner) {
+  border-radius: 12px;
+  resize: none;
+  font-family: inherit;
+}
+
+.chat-input :deep(.el-textarea__inner):focus {
+  box-shadow: 0 0 0 2px rgba(66, 185, 131, 0.2);
 }
 
 .chat-input-actions {
@@ -271,14 +335,20 @@ export default {
 }
 
 .chat-input-actions .el-button {
-  background: #42b983;
-  border-color: #42b983;
-  border-radius: 8px;
-  padding: 10px 24px;
+  background: linear-gradient(135deg, #42b983 0%, #36d1a8 100%);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 28px;
+  font-weight: 500;
+  box-shadow: 0 3px 10px rgba(66, 185, 131, 0.3);
 }
 
 .chat-input-actions .el-button:hover {
-  background: #35a070;
-  border-color: #35a070;
+  background: linear-gradient(135deg, #35a070 0%, #2bbf95 100%);
+}
+
+.chat-input-actions .el-button.is-disabled {
+  background: #c8c9cc;
+  box-shadow: none;
 }
 </style>

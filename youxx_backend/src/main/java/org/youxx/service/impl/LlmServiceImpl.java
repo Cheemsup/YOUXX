@@ -85,10 +85,14 @@ public class LlmServiceImpl implements LlmService {
     /**
      * 统一 Agent 对话入口：按 sessionId 复用持久化 ChatMemory（Redis）。
      * 后端按 userId+sessionId 维度在 Redis 中维护对话历史。
-     * 
-     * 
+     *
+     *
      * 调用方需保证请求线程上下文（{@link org.youxx.common.userInfoMaintainer.BaseContext}）
      * 已写入当前登录用户身份——memory 的 Redis key 按此隔离。
+     *
+     * 【memoryId 透传】sessionId 作为 @MemoryId 透传给 langchain4j，再到达
+     * {@link AgentContext#buildKey(Object)} 拼 key；不透传则框架用固定 "default"，
+     * 所有对话堆到同一 key。
      *
      * @param userMessage 当前用户消息
      * @param sessionId   会话 ID（前端生成），同一 sessionId 共享同一会话记忆
@@ -97,8 +101,7 @@ public class LlmServiceImpl implements LlmService {
      */
     @Override
     public AgentChatResultVO chatWithTools(String userMessage, String sessionId) {
-        // memoryId = sessionId：langchain4j 会把该 id 透传给 ChatMemoryStore（AgentContext）
-        // AgentContext 再按 userId+sessionId 拼 Redis key，实现按用户隔离的会话持久化
+        // memoryId = sessionId：透传进 agent.chat，再由 langchain4j 交给 ChatMemoryProvider， 最终到达 AgentContext.buildKey 拼 Redis key，实现按用户+会话隔离持久化
         ChatMemoryProvider memoryProvider = id -> MessageWindowChatMemory.builder()
                 .id(id)
                 .maxMessages(20)
@@ -114,7 +117,8 @@ public class LlmServiceImpl implements LlmService {
 
         String content;
         try {
-            content = agent.chat(userMessage);
+            // sessionId 作为 @MemoryId 透传：langchain4j 据此路由 ChatMemory（不进模型 prompt）
+            content = agent.chat(sessionId, userMessage);
         } catch (Exception e) {
             log.error("Agent 对话请求失败", e);
             throw new RuntimeException("AI助手暂时不可用", e);
