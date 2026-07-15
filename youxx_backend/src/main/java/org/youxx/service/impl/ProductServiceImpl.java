@@ -9,20 +9,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.youxx.common.result.PageResult;
+import org.youxx.common.service.FileStorageService;
 import org.youxx.entity.Product;
 import org.youxx.entity.ProductCategory;
 import org.youxx.mapper.ProductMapper;
 import org.youxx.service.ProductService;
 
-import java.io.File;
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -30,6 +25,7 @@ import java.util.UUID;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductMapper productMapper;
+    private final FileStorageService fileStorageService;
 
     @Override
     @Cacheable(value = "product:categories")
@@ -179,35 +175,13 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public String uploadImage(MultipartFile file) {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("上传文件为空");
+    public String uploadImage(MultipartFile file, String categoryId) {
+        // 上传前必须已选定商品分类：图片按分类落到 upload_resources/products/{categoryId}/ 二级目录，
+        // 与初始化数据(products/drinks/water.png 等)的目录结构保持一致。
+        if (categoryId == null || categoryId.isBlank()) {
+            throw new IllegalArgumentException("请先选择商品分类再上传图片");
         }
-
-        String originalFilename = file.getOriginalFilename();
-        String extension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-        }
-
-        String filename = UUID.randomUUID().toString() + extension;
-
-        String uploadDir = System.getProperty("user.dir") + File.separator + "uploads" + File.separator + "products";
-
-        try {
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            Path filePath = uploadPath.resolve(filename);
-            file.transferTo(filePath.toFile());
-
-            log.info("商品图片已上传: {}", filePath);
-            return "/uploads/products/" + filename;
-        } catch (IOException e) {
-            log.error("图片上传失败", e);
-            throw new RuntimeException("图片上传失败: " + e.getMessage());
-        }
+        String subDir = "products/" + categoryId;
+        return fileStorageService.storeImage(file, subDir, 800);
     }
 }

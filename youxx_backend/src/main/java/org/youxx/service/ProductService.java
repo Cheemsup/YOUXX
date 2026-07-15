@@ -38,5 +38,12 @@ public interface ProductService {
 
     void deductStock(String id, int quantity);
 
-    String uploadImage(MultipartFile file);
+    /**
+     * 上传商品图片：按商品分类落盘到 upload_resources/products/{categoryId}/ 下。
+     *
+     * @param file       上传的图片
+     * @param categoryId 商品分类 ID，决定图片落盘的二级子目录；为空则拒绝上传
+     * @return 对外可访问的资源路径，如 /upload_resources/products/drinks/xxx.jpg
+     */
+    String uploadImage(MultipartFile file, String categoryId);
 }

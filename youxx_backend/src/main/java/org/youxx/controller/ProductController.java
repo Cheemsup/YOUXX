@@ -92,8 +92,9 @@ public class ProductController {
     }
 
     @PostMapping("/upload")
-    public Result<UploadVO> upload(@RequestParam("file") MultipartFile file) {
-        String url = productService.uploadImage(file);
+    public Result<UploadVO> upload(@RequestParam("file") MultipartFile file,
+                                   @RequestParam("categoryId") String categoryId) {
+        String url = productService.uploadImage(file, categoryId);
         UploadVO vo = new UploadVO();
         vo.setUrl(url);
         return Result.success(vo);

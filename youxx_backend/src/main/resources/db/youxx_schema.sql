@@ -4,11 +4,11 @@
 -- 排序规则: utf8mb4_general_ci
 -- ============================================
 
-CREATE DATABASE IF NOT EXISTS `youxx_db`
+CREATE DATABASE IF NOT EXISTS `youxx`
   DEFAULT CHARACTER SET utf8mb4
   COLLATE utf8mb4_general_ci;
 
-USE `youxx_db`;
+USE `youxx`;
 
 -- ============================================
 -- 1. 用户表 sys_user
@@ -22,7 +22,7 @@ CREATE TABLE `sys_user` (
   `email` VARCHAR(100) DEFAULT NULL COMMENT '邮箱',
   `role` VARCHAR(20) NOT NULL DEFAULT 'USER' COMMENT '角色: ADMIN/USER',
   `status` VARCHAR(10) NOT NULL DEFAULT 'NORMAL' COMMENT '状态: NORMAL/DISABLED',
-  `avatar` TEXT DEFAULT NULL COMMENT '头像URL或Base64',
+  `avatar` TEXT DEFAULT NULL COMMENT '头像资源路径 (/upload_resources/user_icon/xxx.png)',
   `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),

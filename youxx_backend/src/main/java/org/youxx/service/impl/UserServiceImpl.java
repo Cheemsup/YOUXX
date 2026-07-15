@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.youxx.common.result.PageResult;
 import org.youxx.common.security.PasswordEncoder;
+import org.youxx.common.service.FileStorageService;
 import org.youxx.entity.User;
 import org.youxx.entity.UserAddress;
 import org.youxx.mapper.UserAddressMapper;
@@ -22,6 +24,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
     private final UserAddressMapper addressMapper;
+    private final FileStorageService fileStorageService;
 
     @Override
     public PageResult<User> listUsers(String keyword, String role, int page, int size) {
@@ -101,6 +104,13 @@ public class UserServiceImpl implements UserService {
         userMapper.updateProfile(user);
         log.info("个人信息已更新: id={}", id);
         return userMapper.selectById(id);
+    }
+
+    @Override
+    public String uploadAvatar(MultipartFile file) {
+        // 头像压缩(最长边≤256)后落盘到 upload_resources/user_icon/，由 WebMvcConfig 的 /upload_resources/** 静态映射对外提供
+        // 返回 /upload_resources/user_icon/{filename} 路径，前端直接用作 <img src>
+        return fileStorageService.storeImage(file, "user_icon", 256);
     }
 
     @Override

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.youxx.common.result.PageResult;
 import org.youxx.common.result.Result;
 import org.youxx.common.userInfoMaintainer.BaseContext;
@@ -14,6 +15,7 @@ import org.youxx.dto.UserUpdateRequest;
 import org.youxx.entity.User;
 import org.youxx.entity.UserAddress;
 import org.youxx.service.UserService;
+import org.youxx.vo.UploadVO;
 import org.youxx.vo.UserVO;
 
 import java.util.List;
@@ -48,6 +50,18 @@ public class UserController {
     public Result<Void> updatePassword(@RequestBody UpdatePasswordRequest request) {
         userService.updatePassword(BaseContext.getCurrentId(), request.getOldPassword(), request.getNewPassword());
         return Result.success();
+    }
+
+    @PostMapping("/avatar/upload")
+    public Result<UploadVO> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        // 头像落盘 + 路径写回当前用户 avatar，一次完成；前端拿到 url 即可直接展示
+        String url = userService.uploadAvatar(file);
+        User u = new User();
+        u.setAvatar(url);
+        userService.updateProfile(BaseContext.getCurrentId(), u);
+        UploadVO vo = new UploadVO();
+        vo.setUrl(url);
+        return Result.success(vo);
     }
 
     // ==================== 地址管理 ====================

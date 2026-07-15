@@ -15,6 +15,11 @@ spring:
       database: ${spring.data.redis.database}
       timeout: ${spring.data.redis.timeout}
       password: ${spring.data.redis.password}
+  servlet:
+    multipart:
+      # 上传体积真正由后端压缩控制，此处仅兜底防超大文件
+      max-file-size: 10MB
+      max-request-size: 20MB
 
 server:
   port: 8081
@@ -29,3 +34,6 @@ youxx:
     api-key: ${CHATMODEL_API_KEY}
     base-url: ${CHATMODEL_BASE_URL}
     send-thinking: false
+  resource:
+    # 静态资源根目录(仓库根)，dev 环境在 application-dev.yaml 显式写死绝对路径
+    base-dir: ${youxx.resource.base-dir}

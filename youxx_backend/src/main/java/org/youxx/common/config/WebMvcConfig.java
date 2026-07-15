@@ -3,6 +3,7 @@ package org.youxx.common.config;
 import lombok.extern.slf4j.Slf4j;
 import org.youxx.common.interceptor.JwtTokenUserInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -15,6 +16,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Autowired
     private JwtTokenUserInterceptor jwtTokenUserInterceptor;
+
+    // 静态资源根目录：通过配置注入，避免依赖启动时的工作目录(user.dir)
+    // dev 环境在 application-dev.yaml 显式写死仓库根路径
+    @Value("${youxx.resource.base-dir}")
+    private String resourceBaseDir;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -43,7 +49,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + System.getProperty("user.dir") + "/uploads/");
+        // 所有图片(内置商品图 + 运行时上传的头像/商品图)统一落盘到 upload_resources/，
+        // 对外通过 /upload_resources/** 静态服务提供，路径与物理目录一致、无歧义
+        String baseDir = resourceBaseDir;
+        log.info("静态资源根目录: baseDir={}", baseDir);
+        registry.addResourceHandler("/upload_resources/**")
+                .addResourceLocations("file:" + baseDir + "/upload_resources/");
     }
 }

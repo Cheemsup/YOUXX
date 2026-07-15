@@ -6,6 +6,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,6 +43,12 @@ public class GlobalExceptionHandler {
     public Result<Void> handleIllegalState(IllegalStateException ex) {
         log.warn("非法状态异常: {}", ex.getMessage());
         return Result.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Result<Void> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        log.warn("上传文件超出大小限制: {}", ex.getMessage());
+        return Result.error("上传文件过大，请压缩后重试（单文件最大 10MB）");
     }
 
     @ExceptionHandler(RuntimeException.class)
